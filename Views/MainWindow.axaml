@@ -1,0 +1,512 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:SqlBackupBenchmark.ViewModels"
+        x:Class="SqlBackupBenchmark.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="SQL Server 2025 Backup Benchmark"
+        Icon="/Assets/icon.ico"
+        Width="980" Height="820"
+        MinWidth="800" MinHeight="620"
+        WindowStartupLocation="CenterScreen"
+        Background="#1E1E1E">
+
+    <Window.Styles>
+        <Style Selector="TextBlock.lbl">
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="Foreground" Value="#888888"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style Selector="Border.card">
+            <Setter Property="Background" Value="#252526"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="12"/>
+        </Style>
+        <Style Selector="Button.primary">
+            <Setter Property="Background" Value="#0E639C"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Padding" Value="16,8"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.primary:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#1177BB"/>
+        </Style>
+        <Style Selector="Button.primary:disabled /template/ ContentPresenter">
+            <Setter Property="Background" Value="#3C3C3C"/>
+            <Setter Property="Foreground" Value="#666666"/>
+        </Style>
+        <Style Selector="Button.sec">
+            <Setter Property="Background" Value="#3C3C3C"/>
+            <Setter Property="Foreground" Value="#CCCCCC"/>
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.sec:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#505050"/>
+        </Style>
+        <Style Selector="TabItem">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Padding" Value="16,8"/>
+            <Setter Property="Foreground" Value="#AAAAAA"/>
+        </Style>
+        <Style Selector="TabItem:selected">
+            <Setter Property="Foreground" Value="#CCCCCC"/>
+        </Style>
+    </Window.Styles>
+
+    <DockPanel Margin="12" LastChildFill="True">
+
+        <!-- ── App header (above tabs) ── -->
+        <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,10">
+            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
+                <TextBlock Text="SQL Server 2025 Backup Benchmark"
+                           FontSize="18" FontWeight="Bold" Foreground="#CCCCCC"/>
+                <TextBlock Text="{Binding StatusMessage}"
+                           FontSize="12" Foreground="#888888"
+                           VerticalAlignment="Center"/>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                <TextBlock Text="ronald.de.groot@opendata.nl"
+                           FontSize="11" Foreground="#888888"
+                           VerticalAlignment="Center"/>
+                <Button Classes="sec" Content="About" Padding="10,4" FontSize="12"
+                        Click="OnAboutClick"/>
+            </StackPanel>
+        </Grid>
+
+        <!-- ── Tabs ── -->
+        <TabControl>
+
+            <!-- ══ BACKUP TAB ══ -->
+            <TabItem Header="Backup">
+                <DockPanel Margin="0,8,0,0" LastChildFill="True">
+
+                    <!-- Config: database + path -->
+                    <Border DockPanel.Dock="Top" Classes="card" Margin="0,0,0,8">
+                        <Grid ColumnDefinitions="Auto,12,180,24,*,8,Auto" RowDefinitions="Auto,6,Auto">
+                            <TextBlock Grid.Row="0" Grid.Column="0" Classes="lbl" Text="SERVER"/>
+                            <TextBlock Grid.Row="0" Grid.Column="2" Classes="lbl" Text="DATABASE"/>
+                            <TextBlock Grid.Row="0" Grid.Column="4" Grid.ColumnSpan="3" Classes="lbl" Text="BACKUP PATH"/>
+
+                            <TextBlock Grid.Row="2" Grid.Column="0"
+                                       Text="localhost (Win Auth)"
+                                       Foreground="#888888" FontSize="12"
+                                       VerticalAlignment="Center"/>
+                            <ComboBox Grid.Row="2" Grid.Column="2"
+                                      ItemsSource="{Binding AvailableDatabases}"
+                                      SelectedItem="{Binding SelectedDatabase}"
+                                      PlaceholderText="(select)"
+                                      MinWidth="160"/>
+                            <TextBox Grid.Row="2" Grid.Column="4"
+                                     Text="{Binding BackupPath}"
+                                     Watermark="D:\backups"/>
+                            <Button Grid.Row="2" Grid.Column="6"
+                                    Classes="sec" Content="Browse…"
+                                    Click="OnBrowseClick"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- Scenarios + SQL Preview -->
+                    <Grid DockPanel.Dock="Top" ColumnDefinitions="280,8,*" Height="230" Margin="0,0,0,8">
+
+                        <Border Grid.Column="0" Classes="card">
+                            <DockPanel>
+                                <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6">
+                                    <TextBlock Classes="lbl" Text="SCENARIOS" VerticalAlignment="Center"/>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="4">
+                                        <Button Classes="sec" Content="All"
+                                                Command="{Binding SelectAllCommand}"
+                                                Padding="8,3" FontSize="11"/>
+                                        <Button Classes="sec" Content="None"
+                                                Command="{Binding SelectNoneCommand}"
+                                                Padding="8,3" FontSize="11"/>
+                                    </StackPanel>
+                                </DockPanel>
+                                <ListBox ItemsSource="{Binding Scenarios}"
+                                         SelectedItem="{Binding SelectedScenario}"
+                                         Background="Transparent"
+                                         BorderThickness="0">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:BackupScenarioItemViewModel">
+                                            <CheckBox IsChecked="{Binding IsChecked}" Padding="4,1">
+                                                <TextBlock Text="{Binding Scenario.Name}"
+                                                           FontFamily="Cascadia Code,Consolas,monospace"
+                                                           FontSize="12" Foreground="#CCCCCC"/>
+                                            </CheckBox>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </DockPanel>
+                        </Border>
+
+                        <Border Grid.Column="2" Classes="card">
+                            <DockPanel>
+                                <TextBlock DockPanel.Dock="Top" Classes="lbl"
+                                           Text="SQL PREVIEW  (click a scenario to update)"
+                                           Margin="0,0,0,6"/>
+                                <TextBox Text="{Binding SqlPreview}"
+                                         IsReadOnly="True"
+                                         AcceptsReturn="True"
+                                         TextWrapping="Wrap"
+                                         FontFamily="Cascadia Code,Consolas,monospace"
+                                         FontSize="12"
+                                         Background="#1A1A1A"
+                                         BorderBrush="#3C3C3C"
+                                         Foreground="#9CDCFE"
+                                         ScrollViewer.VerticalScrollBarVisibility="Auto"/>
+                            </DockPanel>
+                        </Border>
+                    </Grid>
+
+                    <!-- Run button row -->
+                    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                        <Button DockPanel.Dock="Left"
+                                Classes="primary"
+                                Content="{Binding RunButtonText}"
+                                Command="{Binding RunCommand}"
+                                MinWidth="200"/>
+
+                        <Border DockPanel.Dock="Left"
+                                Background="#2D2D30" CornerRadius="4"
+                                Margin="8,0,0,0" Padding="2">
+                            <StackPanel Orientation="Horizontal" Spacing="2">
+                                <RadioButton GroupName="RunMode"
+                                             IsChecked="{Binding IsParallelRun}"
+                                             Content="Parallel"
+                                             Foreground="#CCCCCC" FontSize="12"
+                                             Padding="8,4"/>
+                                <RadioButton GroupName="RunMode"
+                                             IsChecked="{Binding IsSerialRun}"
+                                             Content="Serial"
+                                             Foreground="#CCCCCC" FontSize="12"
+                                             Padding="8,4"/>
+                            </StackPanel>
+                        </Border>
+
+                        <Button DockPanel.Dock="Left"
+                                Classes="sec" Content="↺  Reload"
+                                Command="{Binding ReloadCommand}"
+                                Margin="8,0,0,0"/>
+                        <ProgressBar IsIndeterminate="True"
+                                     IsVisible="{Binding IsRunning}"
+                                     Height="4" VerticalAlignment="Center"
+                                     Margin="12,0,0,0"/>
+                    </DockPanel>
+
+                    <!-- Results -->
+                    <Border Classes="card">
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Top" Classes="lbl" Text="RESULTS" Margin="0,0,0,8"/>
+
+                            <!-- Column headers -->
+                            <Grid DockPanel.Dock="Top"
+                                  ColumnDefinitions="28,175,80,90,52,85,52,85,*"
+                                  Margin="2,0,2,4">
+                                <TextBlock Grid.Column="1" Classes="lbl" Text="SCENARIO"/>
+                                <TextBlock Grid.Column="2" Classes="lbl" Text="STATUS"/>
+                                <TextBlock Grid.Column="3" Classes="lbl" Text="DURATION"/>
+                                <TextBlock Grid.Column="4" Classes="lbl" Text="DUR%" TextAlignment="Right"/>
+                                <TextBlock Grid.Column="5" Classes="lbl" Text="SIZE (MB)" TextAlignment="Right"/>
+                                <TextBlock Grid.Column="6" Classes="lbl" Text="SIZE%" TextAlignment="Right"/>
+                                <TextBlock Grid.Column="7" Classes="lbl" Text="MB/SEC" TextAlignment="Right"/>
+                                <TextBlock Grid.Column="8" Classes="lbl" Text="MESSAGE"/>
+                            </Grid>
+
+                            <Rectangle DockPanel.Dock="Top" Height="1" Fill="#3C3C3C" Margin="0,0,0,4"/>
+
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <ItemsControl ItemsSource="{Binding Scenarios}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:BackupScenarioItemViewModel">
+                                            <Grid ColumnDefinitions="28,175,80,90,52,85,52,85,*"
+                                                  Margin="2,2">
+
+                                                <!-- SQL flyout button -->
+                                                <Button Grid.Column="0"
+                                                        Background="Transparent"
+                                                        BorderBrush="#505050" BorderThickness="1"
+                                                        CornerRadius="3" Padding="2,1"
+                                                        FontSize="10" Foreground="#777777"
+                                                        Content="SQL"
+                                                        VerticalAlignment="Center"
+                                                        ToolTip.Tip="View SQL statement">
+                                                    <Button.Flyout>
+                                                        <Flyout Placement="RightEdgeAlignedTop">
+                                                            <TextBox Text="{Binding LastSql}"
+                                                                     IsReadOnly="True"
+                                                                     AcceptsReturn="True"
+                                                                     Width="520" Height="115"
+                                                                     FontFamily="Cascadia Code,Consolas,monospace"
+                                                                     FontSize="11"
+                                                                     Background="#1A1A1A"
+                                                                     BorderBrush="#3C3C3C"
+                                                                     Foreground="#9CDCFE"/>
+                                                        </Flyout>
+                                                    </Button.Flyout>
+                                                </Button>
+
+                                                <TextBlock Grid.Column="1"
+                                                           Text="{Binding Scenario.Name}"
+                                                           FontFamily="Cascadia Code,Consolas,monospace"
+                                                           FontSize="12" Foreground="#CCCCCC"
+                                                           VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="2"
+                                                           Text="{Binding StatusText}"
+                                                           FontSize="12" VerticalAlignment="Center"
+                                                           Foreground="{Binding StatusColor}"/>
+                                                <TextBlock Grid.Column="3"
+                                                           Text="{Binding DurationText}"
+                                                           FontSize="12" Foreground="#CCCCCC"
+                                                           VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="4"
+                                                           Text="{Binding DurationRatioText}"
+                                                           FontSize="11"
+                                                           Foreground="{Binding DurationRatioColor}"
+                                                           TextAlignment="Right" VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="5"
+                                                           Text="{Binding FileSizeMbText}"
+                                                           FontSize="12" Foreground="#CCCCCC"
+                                                           TextAlignment="Right" VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="6"
+                                                           Text="{Binding FileSizeRatioText}"
+                                                           FontSize="11"
+                                                           Foreground="{Binding FileSizeRatioColor}"
+                                                           TextAlignment="Right" VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="7"
+                                                           Text="{Binding MbPerSecText}"
+                                                           FontSize="12" Foreground="#9CDCFE"
+                                                           TextAlignment="Right" VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="8"
+                                                           Text="{Binding ErrorMessage}"
+                                                           FontSize="12" Foreground="#F44747"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           VerticalAlignment="Center"
+                                                           ToolTip.Tip="{Binding ErrorMessage}"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </DockPanel>
+                    </Border>
+
+                </DockPanel>
+            </TabItem>
+
+            <!-- ══ RESTORE TAB ══ -->
+            <TabItem Header="Restore">
+                <DockPanel Margin="0,8,0,0" LastChildFill="True">
+
+                    <!-- Config: path + database filter -->
+                    <Border DockPanel.Dock="Top" Classes="card" Margin="0,0,0,8">
+                        <Grid ColumnDefinitions="220,8,Auto,20,160" RowDefinitions="Auto,4,Auto">
+                            <TextBlock Grid.Row="0" Grid.Column="0" Classes="lbl" Text="BACKUP PATH"/>
+                            <TextBlock Grid.Row="0" Grid.Column="4" Classes="lbl" Text="FILTER BY DATABASE"/>
+
+                            <TextBox Grid.Row="2" Grid.Column="0"
+                                     Text="{Binding RestoreTab.BackupPath}"
+                                     Watermark="D:\backups"/>
+                            <Button Grid.Row="2" Grid.Column="2"
+                                    Classes="sec" Content="Browse…"
+                                    Click="OnRestoreBrowseClick"/>
+                            <ComboBox Grid.Row="2" Grid.Column="4"
+                                      ItemsSource="{Binding RestoreTab.AvailableDatabases}"
+                                      SelectedItem="{Binding RestoreTab.SelectedDatabaseFilter}"
+                                      PlaceholderText="(all)"
+                                      MinWidth="160"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- Scenarios with inline file picker per row -->
+                    <Border DockPanel.Dock="Top" Classes="card" Margin="0,0,0,8" Height="230">
+                        <DockPanel>
+                            <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6">
+                                <TextBlock Classes="lbl" Text="SCENARIOS" VerticalAlignment="Center"/>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="4">
+                                    <Button Classes="sec" Content="All"
+                                            Command="{Binding RestoreTab.SelectAllCommand}"
+                                            Padding="8,3" FontSize="11"/>
+                                    <Button Classes="sec" Content="None"
+                                            Command="{Binding RestoreTab.SelectNoneCommand}"
+                                            Padding="8,3" FontSize="11"/>
+                                </StackPanel>
+                            </DockPanel>
+
+                            <!-- Column headers -->
+                            <Grid DockPanel.Dock="Top"
+                                  ColumnDefinitions="20,8,175,8,*,8,220"
+                                  Margin="4,0,4,4">
+                                <TextBlock Grid.Column="2" Classes="lbl" Text="SCENARIO"/>
+                                <TextBlock Grid.Column="4" Classes="lbl" Text="BACKUP FILE"/>
+                                <TextBlock Grid.Column="6" Classes="lbl" Text="RESTORE TARGET DATABASE"/>
+                            </Grid>
+
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <ItemsControl ItemsSource="{Binding RestoreTab.Scenarios}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:RestoreScenarioItemViewModel">
+                                            <Grid ColumnDefinitions="20,8,175,8,*,8,220"
+                                                  Margin="4,2">
+                                                <CheckBox Grid.Column="0"
+                                                          IsChecked="{Binding IsChecked}"
+                                                          VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="2"
+                                                           Text="{Binding Scenario.Name}"
+                                                           FontFamily="Cascadia Code,Consolas,monospace"
+                                                           FontSize="12"
+                                                           Foreground="{Binding RowForeground}"
+                                                           VerticalAlignment="Center"/>
+                                                <ComboBox Grid.Column="4"
+                                                          ItemsSource="{Binding AvailableFiles}"
+                                                          SelectedItem="{Binding SelectedFile}"
+                                                          PlaceholderText="(no files found)"
+                                                          IsEnabled="{Binding FileFound}"
+                                                          HorizontalAlignment="Stretch"
+                                                          FontFamily="Cascadia Code,Consolas,monospace"
+                                                          FontSize="11"/>
+                                                <TextBlock Grid.Column="6"
+                                                           Text="{Binding DerivedRestoreDb}"
+                                                           FontSize="11" Foreground="#9CDCFE"
+                                                           VerticalAlignment="Center"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           ToolTip.Tip="{Binding DerivedRestoreDb}"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </DockPanel>
+                    </Border>
+
+                    <!-- Run button row -->
+                    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                        <Button DockPanel.Dock="Left"
+                                Classes="primary"
+                                Content="▶  Run Serially"
+                                Command="{Binding RestoreTab.RunCommand}"
+                                MinWidth="200"/>
+
+                        <CheckBox DockPanel.Dock="Left"
+                                  IsChecked="{Binding RestoreTab.OverwriteExisting}"
+                                  Content="Overwrite existing database"
+                                  Foreground="#CCCCCC" FontSize="12"
+                                  Margin="12,0,0,0" VerticalAlignment="Center"/>
+
+                        <TextBlock DockPanel.Dock="Left"
+                                   Text="{Binding RestoreTab.StatusMessage}"
+                                   FontSize="12" Foreground="#888888"
+                                   VerticalAlignment="Center" Margin="16,0,0,0"/>
+
+                        <ProgressBar IsIndeterminate="True"
+                                     IsVisible="{Binding RestoreTab.IsRunning}"
+                                     Height="4" VerticalAlignment="Center"
+                                     Margin="12,0,0,0"/>
+                    </DockPanel>
+
+                    <!-- Results -->
+                    <Border Classes="card">
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Top" Classes="lbl" Text="RESULTS" Margin="0,0,0,8"/>
+
+                            <!-- Column headers -->
+                            <Grid DockPanel.Dock="Top"
+                                  ColumnDefinitions="28,175,80,90,52,85,52,85,*"
+                                  Margin="2,0,2,4">
+                                <TextBlock Grid.Column="1" Classes="lbl" Text="SCENARIO"/>
+                                <TextBlock Grid.Column="2" Classes="lbl" Text="STATUS"/>
+                                <TextBlock Grid.Column="3" Classes="lbl" Text="DURATION"/>
+                                <TextBlock Grid.Column="4" Classes="lbl" Text="DUR%" TextAlignment="Right"/>
+                                <TextBlock Grid.Column="5" Classes="lbl" Text="SIZE (MB)" TextAlignment="Right"/>
+                                <TextBlock Grid.Column="6" Classes="lbl" Text="SIZE%" TextAlignment="Right"/>
+                                <TextBlock Grid.Column="7" Classes="lbl" Text="MB/SEC" TextAlignment="Right"/>
+                                <TextBlock Grid.Column="8" Classes="lbl" Text="MESSAGE"/>
+                            </Grid>
+
+                            <Rectangle DockPanel.Dock="Top" Height="1" Fill="#3C3C3C" Margin="0,0,0,4"/>
+
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <ItemsControl ItemsSource="{Binding RestoreTab.Scenarios}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:RestoreScenarioItemViewModel">
+                                            <Grid ColumnDefinitions="28,175,80,90,52,85,52,85,*"
+                                                  Margin="2,2">
+
+                                                <!-- SQL flyout button -->
+                                                <Button Grid.Column="0"
+                                                        Background="Transparent"
+                                                        BorderBrush="#505050" BorderThickness="1"
+                                                        CornerRadius="3" Padding="2,1"
+                                                        FontSize="10" Foreground="#777777"
+                                                        Content="SQL"
+                                                        VerticalAlignment="Center"
+                                                        ToolTip.Tip="View SQL statement">
+                                                    <Button.Flyout>
+                                                        <Flyout Placement="RightEdgeAlignedTop">
+                                                            <TextBox Text="{Binding LastSql}"
+                                                                     IsReadOnly="True"
+                                                                     AcceptsReturn="True"
+                                                                     Width="520" Height="160"
+                                                                     FontFamily="Cascadia Code,Consolas,monospace"
+                                                                     FontSize="11"
+                                                                     Background="#1A1A1A"
+                                                                     BorderBrush="#3C3C3C"
+                                                                     Foreground="#9CDCFE"/>
+                                                        </Flyout>
+                                                    </Button.Flyout>
+                                                </Button>
+
+                                                <TextBlock Grid.Column="1"
+                                                           Text="{Binding Scenario.Name}"
+                                                           FontFamily="Cascadia Code,Consolas,monospace"
+                                                           FontSize="12"
+                                                           Foreground="{Binding RowForeground}"
+                                                           VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="2"
+                                                           Text="{Binding StatusText}"
+                                                           FontSize="12" VerticalAlignment="Center"
+                                                           Foreground="{Binding StatusColor}"/>
+                                                <TextBlock Grid.Column="3"
+                                                           Text="{Binding DurationText}"
+                                                           FontSize="12" Foreground="#CCCCCC"
+                                                           VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="4"
+                                                           Text="{Binding DurationRatioText}"
+                                                           FontSize="11"
+                                                           Foreground="{Binding DurationRatioColor}"
+                                                           TextAlignment="Right" VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="5"
+                                                           Text="{Binding FileSizeMbText}"
+                                                           FontSize="12" Foreground="#CCCCCC"
+                                                           TextAlignment="Right" VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="6"
+                                                           Text="{Binding FileSizeRatioText}"
+                                                           FontSize="11"
+                                                           Foreground="{Binding FileSizeRatioColor}"
+                                                           TextAlignment="Right" VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="7"
+                                                           Text="{Binding MbPerSecText}"
+                                                           FontSize="12" Foreground="#9CDCFE"
+                                                           TextAlignment="Right" VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="8"
+                                                           Text="{Binding ErrorMessage}"
+                                                           FontSize="12" Foreground="#F44747"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           VerticalAlignment="Center"
+                                                           ToolTip.Tip="{Binding ErrorMessage}"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </DockPanel>
+                    </Border>
+
+                </DockPanel>
+            </TabItem>
+
+        </TabControl>
+
+    </DockPanel>
+</Window>

@@ -1,0 +1,68 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="SqlBackupBenchmark.Views.AboutWindow"
+        Title="About"
+        Icon="/Assets/icon.ico"
+        Width="480" SizeToContent="Height"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Background="#1E1E1E">
+
+    <Window.Styles>
+        <Style Selector="TextBlock.subtle">
+            <Setter Property="Foreground" Value="#888888"/>
+            <Setter Property="FontSize" Value="12"/>
+        </Style>
+        <Style Selector="Border.card">
+            <Setter Property="Background" Value="#252526"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="10"/>
+        </Style>
+        <Style Selector="Button.sec">
+            <Setter Property="Background" Value="#3C3C3C"/>
+            <Setter Property="Foreground" Value="#CCCCCC"/>
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.sec:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#505050"/>
+        </Style>
+    </Window.Styles>
+
+    <StackPanel Margin="22" Spacing="10">
+
+        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+            <Image Source="/Assets/icon.ico" Width="32" Height="32"/>
+            <StackPanel Spacing="0">
+                <TextBlock Text="SQL Server 2025 Backup Benchmark" FontSize="18" FontWeight="Bold" Foreground="#CCCCCC"/>
+                <TextBlock x:Name="VersionText" Classes="subtle"/>
+            </StackPanel>
+        </StackPanel>
+
+        <TextBlock Foreground="#CCCCCC" TextWrapping="Wrap"
+                    Text="Benchmarks SQL Server 2025 backup compression — MS_XPRESS, QAT, and ZSTD — across backup size, throughput, restore speed, and CPU cost, so you can pick the right algorithm for your data and hardware."/>
+
+        <TextBlock Classes="subtle" FontWeight="SemiBold" TextWrapping="Wrap"
+                    Text="Connects only to localhost (Windows Authentication). No telemetry, no other network calls."/>
+
+        <Border Classes="card">
+            <StackPanel Spacing="4">
+                <TextBlock Foreground="#CCCCCC" TextWrapping="Wrap"
+                            Text="11 fixed scenarios: NO_COMPRESSION, DEFAULT, MS_XPRESS (Low/Medium/High), QAT_DEFLATE (Low/Medium/High), ZSTD (Low/Medium/High)."/>
+                <TextBlock Classes="subtle" TextWrapping="Wrap"
+                            Text="QAT_DEFLATE scenarios report Error when Intel QAT hardware isn't present — that's expected."/>
+            </StackPanel>
+        </Border>
+
+        <TextBlock Classes="subtle" TextWrapping="Wrap"
+                    Text="&quot;SQL Server&quot; is a trademark of Microsoft Corporation. This tool is independent and not affiliated with or endorsed by Microsoft."/>
+
+        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" Margin="0,4,0,0">
+            <Button Classes="sec" Content="Copy diagnostics" Click="OnCopyDiagnosticsClick"/>
+            <Button Classes="sec" Content="Help / contact" Click="OnContactClick"
+                    ToolTip.Tip="Open your mail client with a message to the author (version details filled in)"/>
+            <Button Classes="sec" Content="Close" Click="OnCloseClick"/>
+        </StackPanel>
+    </StackPanel>
+</Window>
