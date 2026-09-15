@@ -1,0 +1,100 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:SqlBackupBenchmark.ViewModels"
+        x:Class="SqlBackupBenchmark.Views.ConnectionDialog"
+        x:DataType="vm:ConnectionDialogViewModel"
+        Title="Connection"
+        Icon="/Assets/icon.ico"
+        Width="420" SizeToContent="Height"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Background="#1E1E1E">
+
+    <Window.Styles>
+        <Style Selector="TextBlock.lbl">
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="Foreground" Value="#888888"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style Selector="Button.primary">
+            <Setter Property="Background" Value="#0E639C"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Padding" Value="16,8"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.primary:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#1177BB"/>
+        </Style>
+        <Style Selector="Button.sec">
+            <Setter Property="Background" Value="#3C3C3C"/>
+            <Setter Property="Foreground" Value="#CCCCCC"/>
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.sec:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#505050"/>
+        </Style>
+        <Style Selector="Button.sec:disabled /template/ ContentPresenter">
+            <Setter Property="Background" Value="#2D2D2D"/>
+            <Setter Property="Foreground" Value="#666666"/>
+        </Style>
+    </Window.Styles>
+
+    <StackPanel Margin="22" Spacing="10">
+
+        <TextBlock Text="Connection" FontSize="18" FontWeight="Bold" Foreground="#CCCCCC"/>
+
+        <StackPanel Spacing="4">
+            <TextBlock Classes="lbl" Text="SERVER"/>
+            <TextBox Text="{Binding Server}" Watermark="localhost or server\instance"/>
+        </StackPanel>
+
+        <StackPanel Spacing="4" Margin="0,4,0,0">
+            <TextBlock Classes="lbl" Text="AUTHENTICATION"/>
+            <StackPanel Orientation="Horizontal" Spacing="16">
+                <RadioButton GroupName="Auth"
+                             IsChecked="{Binding IntegratedSecurity}"
+                             Content="Windows Authentication"
+                             Foreground="#CCCCCC"/>
+                <RadioButton GroupName="Auth"
+                             IsChecked="{Binding UseSqlLogin}"
+                             Content="SQL Login"
+                             Foreground="#CCCCCC"/>
+            </StackPanel>
+        </StackPanel>
+
+        <Grid ColumnDefinitions="*,8,*" IsVisible="{Binding UseSqlLogin}">
+            <StackPanel Grid.Column="0" Spacing="4">
+                <TextBlock Classes="lbl" Text="USER ID"/>
+                <TextBox Text="{Binding UserId}"/>
+            </StackPanel>
+            <StackPanel Grid.Column="2" Spacing="4">
+                <TextBlock Classes="lbl" Text="PASSWORD"/>
+                <TextBox Text="{Binding Password}" PasswordChar="•"/>
+            </StackPanel>
+        </Grid>
+
+        <CheckBox IsChecked="{Binding TrustServerCertificate}"
+                  Content="Trust server certificate"
+                  Foreground="#CCCCCC" FontSize="12"
+                  Margin="0,4,0,0"/>
+
+        <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,4,0,0" VerticalAlignment="Center">
+            <Button Classes="sec" Content="Test Connection"
+                    Command="{Binding TestConnectionCommand}"
+                    IsEnabled="{Binding !IsTesting}"/>
+            <TextBlock Text="{Binding TestStatus}"
+                       Foreground="{Binding TestStatusColor}"
+                       FontSize="12" TextWrapping="Wrap"
+                       VerticalAlignment="Center"/>
+        </StackPanel>
+
+        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" Margin="0,10,0,0">
+            <Button Classes="sec" Content="Cancel" Click="OnCancelClick"/>
+            <Button Classes="primary" Content="OK" Click="OnOkClick"/>
+        </StackPanel>
+    </StackPanel>
+</Window>

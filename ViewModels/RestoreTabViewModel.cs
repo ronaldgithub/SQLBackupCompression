@@ -14,7 +14,7 @@ namespace SqlBackupBenchmark.ViewModels;
 
 public partial class RestoreTabViewModel : ViewModelBase
 {
-    private readonly SqlRestoreService _service = new();
+    private readonly SqlRestoreService _service;
 
     [ObservableProperty] private string _backupPath = @"D:\backups";
     [ObservableProperty] private ObservableCollection<string> _availableDatabases = [];
@@ -27,8 +27,10 @@ public partial class RestoreTabViewModel : ViewModelBase
 
     private CancellationTokenSource? _cts;
 
-    public RestoreTabViewModel()
+    public RestoreTabViewModel(ConnectionSettings connectionSettings)
     {
+        _service = new SqlRestoreService(connectionSettings);
+
         foreach (var s in BackupScenario.AllScenarios())
         {
             var vm = new RestoreScenarioItemViewModel(s);
@@ -178,4 +180,6 @@ public partial class RestoreTabViewModel : ViewModelBase
     }
 
     public void SetBackupPathFromDialog(string path) => BackupPath = path;
+
+    public async Task RefreshConnectionAsync() => await LoadDatabasesAsync();
 }

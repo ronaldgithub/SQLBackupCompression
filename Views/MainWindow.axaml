@@ -71,6 +71,9 @@
                 <TextBlock Text="ronald.de.groot@opendata.nl"
                            FontSize="11" Foreground="#888888"
                            VerticalAlignment="Center"/>
+                <Button Classes="sec" Content="{Binding ConnectionSummary}" Padding="10,4" FontSize="12"
+                        Click="OnConnectionClick"
+                        ToolTip.Tip="Change connection"/>
                 <Button Classes="sec" Content="About" Padding="10,4" FontSize="12"
                         Click="OnAboutClick"/>
             </StackPanel>
@@ -91,9 +94,10 @@
                             <TextBlock Grid.Row="0" Grid.Column="4" Grid.ColumnSpan="3" Classes="lbl" Text="BACKUP PATH"/>
 
                             <TextBlock Grid.Row="2" Grid.Column="0"
-                                       Text="localhost (Win Auth)"
+                                       Text="{Binding ConnectionSummary}"
                                        Foreground="#888888" FontSize="12"
-                                       VerticalAlignment="Center"/>
+                                       VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis"/>
                             <ComboBox Grid.Row="2" Grid.Column="2"
                                       ItemsSource="{Binding AvailableDatabases}"
                                       SelectedItem="{Binding SelectedDatabase}"

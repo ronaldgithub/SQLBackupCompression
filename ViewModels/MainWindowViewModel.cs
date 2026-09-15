@@ -14,15 +14,18 @@ namespace SqlBackupBenchmark.ViewModels;
 
 public partial class MainWindowViewModel : ViewModelBase
 {
-    private readonly SqlBackupService _service = new();
+    public ConnectionSettings ConnectionSettings { get; } = new();
 
-    public RestoreTabViewModel RestoreTab { get; } = new();
+    private readonly SqlBackupService _service;
+
+    public RestoreTabViewModel RestoreTab { get; }
 
     [ObservableProperty] private ObservableCollection<string> _availableDatabases = [];
     [ObservableProperty] private string? _selectedDatabase;
     [ObservableProperty] private string _backupPath = @"D:\backups";
     [ObservableProperty] private string _sqlPreview = "";
     [ObservableProperty] private string _statusMessage = "Ready";
+    [ObservableProperty] private string _connectionSummary = "";
     [ObservableProperty] private bool _isRunning;
     [ObservableProperty] private bool _isParallelRun = true;
     [ObservableProperty] private BackupScenarioItemViewModel? _selectedScenario;
@@ -41,6 +44,10 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public MainWindowViewModel()
     {
+        _service = new SqlBackupService(ConnectionSettings);
+        RestoreTab = new RestoreTabViewModel(ConnectionSettings);
+        ConnectionSummary = ConnectionSettings.Summary;
+
         foreach (var s in BackupScenario.AllScenarios())
             Scenarios.Add(new BackupScenarioItemViewModel(s));
 
@@ -181,4 +188,12 @@ public partial class MainWindowViewModel : ViewModelBase
     private async Task Reload() => await LoadDatabasesAsync();
 
     public void SetBackupPathFromDialog(string path) => BackupPath = path;
+
+    public async Task ApplyConnectionSettingsAsync(ConnectionSettings newSettings)
+    {
+        ConnectionSettings.CopyFrom(newSettings);
+        ConnectionSummary = ConnectionSettings.Summary;
+        await LoadDatabasesAsync();
+        await RestoreTab.RefreshConnectionAsync();
+    }
 }

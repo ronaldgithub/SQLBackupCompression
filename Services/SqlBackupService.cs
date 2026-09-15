@@ -9,10 +9,9 @@ using SqlBackupBenchmark.Models;
 
 namespace SqlBackupBenchmark.Services;
 
-public class SqlBackupService
+public class SqlBackupService(ConnectionSettings connectionSettings)
 {
-    private const string ConnectionString =
-        "Server=localhost;Integrated Security=true;TrustServerCertificate=true;Connection Timeout=5;";
+    private string ConnectionString => connectionSettings.BuildConnectionString();
 
     public async Task<List<string>> GetDatabasesAsync(CancellationToken ct = default)
     {

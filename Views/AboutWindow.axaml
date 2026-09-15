@@ -44,7 +44,7 @@
                     Text="Benchmarks SQL Server 2025 backup compression — MS_XPRESS, QAT, and ZSTD — across backup size, throughput, restore speed, and CPU cost, so you can pick the right algorithm for your data and hardware."/>
 
         <TextBlock Classes="subtle" FontWeight="SemiBold" TextWrapping="Wrap"
-                    Text="Connects only to localhost (Windows Authentication). No telemetry, no other network calls."/>
+                    Text="Connects only to the SQL Server instance configured in the Connection dialog. No telemetry, no other network calls."/>
 
         <Border Classes="card">
             <StackPanel Spacing="4">

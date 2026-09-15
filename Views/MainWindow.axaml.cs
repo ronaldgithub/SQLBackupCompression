@@ -27,6 +27,17 @@ public partial class MainWindow : Window
     private async void OnAboutClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
         => await new AboutWindow().ShowDialog(this);
 
+    private async void OnConnectionClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel vm) return;
+
+        var dialogVm = new ConnectionDialogViewModel(vm.ConnectionSettings);
+        var dialog = new ConnectionDialog(dialogVm);
+        var accepted = await dialog.ShowDialog<bool>(this);
+        if (accepted)
+            await vm.ApplyConnectionSettingsAsync(dialogVm.ToSettings());
+    }
+
     private async System.Threading.Tasks.Task<string?> PickFolderAsync(string title)
     {
         var result = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
