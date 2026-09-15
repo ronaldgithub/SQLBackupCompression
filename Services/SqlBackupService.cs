@@ -13,17 +13,26 @@ public class SqlBackupService(ConnectionSettings connectionSettings)
 {
     private string ConnectionString => connectionSettings.BuildConnectionString();
 
-    public async Task<List<string>> GetDatabasesAsync(CancellationToken ct = default)
+    public async Task<List<DatabaseInfo>> GetDatabasesAsync(CancellationToken ct = default)
     {
-        var databases = new List<string>();
+        var databases = new List<DatabaseInfo>();
         await using var conn = new SqlConnection(ConnectionString);
         await conn.OpenAsync(ct);
         await using var cmd = new SqlCommand(
-            "SELECT name FROM sys.databases WHERE database_id > 4 AND state_desc = 'ONLINE' ORDER BY name",
+            @"SELECT d.name, SUM(mf.size) * 8.0 / 1024 AS SizeMB
+              FROM sys.databases d
+              JOIN sys.master_files mf ON mf.database_id = d.database_id
+              WHERE d.database_id > 4 AND d.state_desc = 'ONLINE'
+              GROUP BY d.name
+              ORDER BY d.name",
             conn);
         await using var reader = await cmd.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct))
-            databases.Add(reader.GetString(0));
+            databases.Add(new DatabaseInfo
+            {
+                Name = reader.GetString(0),
+                SizeMB = Convert.ToDouble(reader.GetValue(1))
+            });
         return databases;
     }
 

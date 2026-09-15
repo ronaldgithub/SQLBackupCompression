@@ -20,8 +20,8 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public RestoreTabViewModel RestoreTab { get; }
 
-    [ObservableProperty] private ObservableCollection<string> _availableDatabases = [];
-    [ObservableProperty] private string? _selectedDatabase;
+    [ObservableProperty] private ObservableCollection<DatabaseInfo> _availableDatabases = [];
+    [ObservableProperty] private DatabaseInfo? _selectedDatabase;
     [ObservableProperty] private string _backupPath = @"D:\backups";
     [ObservableProperty] private string _sqlPreview = "";
     [ObservableProperty] private string _statusMessage = "Ready";
@@ -57,7 +57,7 @@ public partial class MainWindowViewModel : ViewModelBase
     partial void OnSelectedScenarioChanged(BackupScenarioItemViewModel? value)
         => UpdateSqlPreview(value);
 
-    partial void OnSelectedDatabaseChanged(string? value)
+    partial void OnSelectedDatabaseChanged(DatabaseInfo? value)
     {
         UpdateSqlPreview(SelectedScenario);
         RunCommand.NotifyCanExecuteChanged();
@@ -77,13 +77,13 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private void UpdateSqlPreview(BackupScenarioItemViewModel? scenarioVm)
     {
-        if (scenarioVm is null || string.IsNullOrWhiteSpace(SelectedDatabase))
+        if (scenarioVm is null || SelectedDatabase is null)
         {
             SqlPreview = "";
             return;
         }
         var ts = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-        SqlPreview = scenarioVm.Scenario.GenerateSql(SelectedDatabase, BackupPath, ts);
+        SqlPreview = scenarioVm.Scenario.GenerateSql(SelectedDatabase.Name, BackupPath, ts);
     }
 
     private async Task LoadDatabasesAsync()
@@ -92,7 +92,7 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             StatusMessage = "Connecting to localhost...";
             var dbs = await _service.GetDatabasesAsync();
-            AvailableDatabases = new ObservableCollection<string>(dbs);
+            AvailableDatabases = new ObservableCollection<DatabaseInfo>(dbs);
             SelectedDatabase = dbs.Count > 0 ? dbs[0] : null;
             StatusMessage = dbs.Count > 0
                 ? $"Connected — {dbs.Count} databases found"
@@ -119,7 +119,7 @@ public partial class MainWindowViewModel : ViewModelBase
     [RelayCommand(CanExecute = nameof(CanRun))]
     private async Task Run()
     {
-        var db = SelectedDatabase;
+        var db = SelectedDatabase?.Name;
         if (string.IsNullOrWhiteSpace(db)) return;
 
         var selected = Scenarios.Where(s => s.IsChecked).ToList();
@@ -172,7 +172,7 @@ public partial class MainWindowViewModel : ViewModelBase
         foreach (var s in done) s.SetRatios(bestSize, bestDur);
     }
 
-    private bool CanRun() => !IsRunning && !string.IsNullOrWhiteSpace(SelectedDatabase);
+    private bool CanRun() => !IsRunning && SelectedDatabase is not null;
 
     private async Task RunScenarioAsync(
         BackupScenarioItemViewModel vm,
