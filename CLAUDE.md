@@ -33,7 +33,7 @@ No tests are present. There is no lint step.
 
 ## Architecture
 
-Avalonia 11 desktop app targeting `net8.0-windows`. Two tabs: **Backup** and **Restore**. All UI lives in `MainWindow` — no additional windows or dialogs beyond the folder picker.
+Avalonia 11 desktop app targeting `net8.0-windows`. Two tabs: **Backup** and **Restore**, plus supporting dialogs opened from `MainWindow`: the folder picker, `ConnectionDialog`, `InfoWindow` (compression algorithm reference), `AnalysisWindow` (table-level compression readiness report), and `AboutWindow`.
 
 **Scenarios — 11 fixed combinations** (`BackupScenario.AllScenarios()`):
 
@@ -47,25 +47,33 @@ Avalonia 11 desktop app targeting `net8.0-windows`. Two tabs: **Backup** and **R
 
 `DEFAULT` uses plain `COMPRESSION` with no parameters (inherits server default). `LEVEL` is only valid when an `ALGORITHM` is specified — `COMPRESSION (LEVEL = X)` alone is invalid SQL Server syntax.
 
-QAT_DEFLATE scenarios fail with a SQL Server error when Intel QAT hardware is absent; this is expected and displayed as `Error` status.
+Every generated backup statement also includes `COPY_ONLY`, so benchmark runs never disturb a database's real differential base or backup chain.
+
+`Services/CpuInfo.cs` detects the CPU vendor from the `PROCESSOR_IDENTIFIER` environment variable at startup. When it isn't Intel, the three `QAT_DEFLATE_*` scenarios (`BackupScenarioItemViewModel.IsQatUnsupported`) start unchecked and disabled, render struck through with an "Only Intel CPU" note beside the name, and are filtered out of `SelectAll()` and `Run()` — they're never actually executed, so they never show a stale hardware error.
 
 ---
 
 ## Backup tab
 
+**Layout:** config card (server / database / CPU / backup path) at the top, a Run button row, then the SCENARIOS checklist and RESULTS grid side by side in a `260px | *` grid filling the rest of the window — both scroll independently. There is no SQL preview panel; the per-row SQL flyout is the only way to see generated SQL before or after a run.
+
 **Data flow:**
 
 1. `BackupScenario.AllScenarios()` produces all 11 scenarios at startup.
 2. `MainWindowViewModel` wraps each in a `BackupScenarioItemViewModel` and populates `Scenarios`.
-3. On **Run**, the VM checks `IsParallelRun`:
+3. On **Run**, the VM checks `IsParallelRun` (default: `false`, i.e. Serial):
    - *Parallel*: all checked scenarios launch at once via `Task.WhenAll`, each with its own `SqlConnection`.
    - *Serial*: scenarios run one at a time in list order; status bar shows which is active.
-4. Results post back to the UI thread via `Dispatcher.UIThread.Post(() => vm.ApplyResult(result))`.
+4. Results post back to the UI thread via `Dispatcher.UIThread.Post(() => vm.ApplyResult(result, databaseSizeMb))`.
 5. After all tasks finish, `ComputeRatios()` calculates SIZE% and DUR% relative to the best (smallest = 100%).
 
 **SQL generation** lives entirely in `BackupScenario.GenerateSql` / `BuildWithClause`. The exact SQL executed is stored in `BackupResult.SqlStatement` and displayed in the per-row SQL flyout button.
 
 **Backup file naming:** `{database}_{ScenarioName}_{yyyyMMdd_HHmmss}.bak` — used by both the backup tab (to write) and the restore tab (to discover files).
+
+**RATIO column:** `BackupScenarioItemViewModel.CompressionRatioText`, computed in `ApplyResult` as `100% × (1 − backup size ÷ database size)` — space saved versus the *source database's* size (from the selected `DatabaseInfo.SizeMB`), not versus the best result in the run (that's SIZE%).
+
+**Analyse button:** next to the DATABASE picker, enabled once a database is selected. `MainWindowViewModel.RunTableAnalysisAsync` runs `SqlAnalysisService.GetTableAnalysisAsync` (a fixed query over `sys.tables`/`sys.dm_db_partition_stats`/`sys.columns`) against the selected database and opens `Views/AnalysisWindow.axaml` (backed by `AnalysisWindowViewModel`) showing the top 25 tables by size, storage compression, and LOB/GUID/Unicode/fixed-width/float column counts, with a bold TOTAL row summed across the listed tables. Failures surface through `StatusMessage`, same pattern as `LoadDatabasesAsync` — no dialog opens on error.
 
 ---
 
@@ -123,5 +131,9 @@ Multiple data/log files get indexed names (`_2.ndf`, `_log2.ldf`, etc.).
 **Connection:** Configured via `Models/ConnectionSettings.cs` (Server, Windows/SQL auth, TrustServerCertificate), defaulting to `Server=localhost;Integrated Security=true;TrustServerCertificate=true`. `MainWindowViewModel` owns one shared `ConnectionSettings` instance, constructs `SqlBackupService` with it, and passes it into `RestoreTabViewModel`'s constructor, which uses it to build its own `SqlRestoreService` — both services read `connectionSettings.BuildConnectionString()` per call, so a change is picked up on the next connection without re-registering anything. `CommandTimeout = 0` for backup/restore commands. `STATS = 10` produces progress messages every 10% via `SqlConnection.InfoMessage`.
 
 **Connection dialog:** The header button (bound to `ConnectionSummary`, e.g. "localhost (Windows Auth)") opens `Views/ConnectionDialog.axaml` via `MainWindow.OnConnectionClick`. The dialog edits a scratch copy (`ConnectionDialogViewModel`, constructed from the current `ConnectionSettings`) so Cancel discards changes; it has its own "Test Connection" button that opens a throwaway `SqlConnection` to report success/failure without touching the app's live services. OK calls `MainWindowViewModel.ApplyConnectionSettingsAsync`, which copies the new settings into the shared `ConnectionSettings` instance (via `CopyFrom`, so both services see it), then reloads the database list on both tabs.
+
+**Info dialog** (`Views/InfoWindow.axaml`, opened via the header "Info" button) is static reference content — no ViewModel, no live data — covering how MS_XPRESS/QAT_DEFLATE/ZSTD work and how column data types and storage features (ROW/PAGE compression, columnstore, TDE) affect backup compression. Purely documentation; update it by hand if the scenario table or algorithm behavior changes.
+
+**About dialog** (`Views/AboutWindow.axaml`) shows app name/version (from the `Version` MSBuild property in the `.csproj`, read via `AssemblyInformationalVersionAttribute`), a "Copy diagnostics" button, a "Help / contact" button (mailto with diagnostics pre-filled), and a CONTACT card with plain link buttons (`Classes="link"`, `Tag` holds the URI, all routed through one `OnLinkClick` handler) for mail/GitHub/Home/Posts.
 
 **Adding a new scenario:** Add an entry in `BackupScenario.AllScenarios()`. Both the backup and restore tabs pick it up automatically — the checklist, runners, ratio calculators, and results grids require no other changes.

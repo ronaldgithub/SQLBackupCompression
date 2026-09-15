@@ -16,7 +16,7 @@ public class BackupScenario
         var fileName = $"{database}_{Name}_{timestamp}.bak";
         var filePath = Path.Combine(backupPath, fileName);
         var withClause = BuildWithClause();
-        return $"BACKUP DATABASE [{database}]\r\nTO DISK = N'{filePath}'\r\nWITH {withClause},\r\n     STATS = 10;\r\n";
+        return $"BACKUP DATABASE [{database}]\r\nTO DISK = N'{filePath}'\r\nWITH COPY_ONLY, {withClause},\r\n     STATS = 10;\r\n";
     }
 
     public string GetBackupFilePath(string database, string backupPath, string timestamp)

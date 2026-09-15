@@ -22,7 +22,7 @@ public partial class AboutWindow : Window
         ?? "0.0.0";
 
     private static string Diagnostics =>
-        $"SQL Server 2025 Backup Benchmark {Version}\n" +
+        $"SQL Server 2025 Backup/Restore Benchmark {Version}\n" +
         $"Microsoft.Data.SqlClient: {typeof(Microsoft.Data.SqlClient.SqlConnection).Assembly.GetName().Version}\n" +
         $"Runtime: {Environment.Version} · OS: {Environment.OSVersion}";
 
@@ -38,7 +38,7 @@ public partial class AboutWindow : Window
         var launcher = GetTopLevel(this)?.Launcher;
         if (launcher is null) return;
 
-        const string subject = "SQL Server 2025 Backup Benchmark - help";
+        const string subject = "SQL Server 2025 Backup/Restore Benchmark - help";
         var body =
             "Describe what you need help with:\n\n\n" +
             "----- version / environment (leave this in) -----\n" +
@@ -52,6 +52,22 @@ public partial class AboutWindow : Window
         catch
         {
             // no mail client configured — nothing sensible to do
+        }
+    }
+
+    private async void OnLinkClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: string url }) return;
+        var launcher = GetTopLevel(this)?.Launcher;
+        if (launcher is null) return;
+
+        try
+        {
+            await launcher.LaunchUriAsync(new Uri(url));
+        }
+        catch
+        {
+            // no handler registered for this link — nothing sensible to do
         }
     }
 

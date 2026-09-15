@@ -24,12 +24,10 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty] private ObservableCollection<DatabaseInfo> _availableDatabases = [];
     [ObservableProperty] private DatabaseInfo? _selectedDatabase;
     [ObservableProperty] private string _backupPath = @"D:\backups";
-    [ObservableProperty] private string _sqlPreview = "";
     [ObservableProperty] private string _statusMessage = "Ready";
     [ObservableProperty] private string _connectionSummary = "";
     [ObservableProperty] private bool _isRunning;
     [ObservableProperty] private bool _isParallelRun;
-    [ObservableProperty] private BackupScenarioItemViewModel? _selectedScenario;
     [ObservableProperty] private ObservableCollection<TableAnalysisRow> _analysisResults = [];
 
     public string CpuVendor => CpuInfo.VendorName;
@@ -59,17 +57,8 @@ public partial class MainWindowViewModel : ViewModelBase
         _ = LoadDatabasesAsync();
     }
 
-    partial void OnSelectedScenarioChanged(BackupScenarioItemViewModel? value)
-        => UpdateSqlPreview(value);
-
     partial void OnSelectedDatabaseChanged(DatabaseInfo? value)
-    {
-        UpdateSqlPreview(SelectedScenario);
-        RunCommand.NotifyCanExecuteChanged();
-    }
-
-    partial void OnBackupPathChanged(string value)
-        => UpdateSqlPreview(SelectedScenario);
+        => RunCommand.NotifyCanExecuteChanged();
 
     partial void OnIsRunningChanged(bool value)
         => RunCommand.NotifyCanExecuteChanged();
@@ -78,17 +67,6 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         OnPropertyChanged(nameof(IsSerialRun));
         OnPropertyChanged(nameof(RunButtonText));
-    }
-
-    private void UpdateSqlPreview(BackupScenarioItemViewModel? scenarioVm)
-    {
-        if (scenarioVm is null || SelectedDatabase is null)
-        {
-            SqlPreview = "";
-            return;
-        }
-        var ts = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-        SqlPreview = scenarioVm.Scenario.GenerateSql(SelectedDatabase.Name, BackupPath, ts);
     }
 
     private async Task LoadDatabasesAsync()

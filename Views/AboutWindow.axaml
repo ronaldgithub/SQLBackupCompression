@@ -28,6 +28,18 @@
         <Style Selector="Button.sec:pointerover /template/ ContentPresenter">
             <Setter Property="Background" Value="#505050"/>
         </Style>
+        <Style Selector="Button.link">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#9CDCFE"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="FontSize" Value="12"/>
+        </Style>
+        <Style Selector="Button.link:pointerover">
+            <Setter Property="Foreground" Value="#C6E7FF"/>
+        </Style>
     </Window.Styles>
 
     <StackPanel Margin="22" Spacing="10">
@@ -35,7 +47,7 @@
         <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
             <Image Source="/Assets/icon.ico" Width="32" Height="32"/>
             <StackPanel Spacing="0">
-                <TextBlock Text="SQL Server 2025 Backup Benchmark" FontSize="18" FontWeight="Bold" Foreground="#CCCCCC"/>
+                <TextBlock Text="SQL Server 2025 Backup/Restore Benchmark" FontSize="18" FontWeight="Bold" Foreground="#CCCCCC"/>
                 <TextBlock x:Name="VersionText" Classes="subtle"/>
             </StackPanel>
         </StackPanel>
@@ -52,6 +64,29 @@
                             Text="11 fixed scenarios: NO_COMPRESSION, DEFAULT, MS_XPRESS (Low/Medium/High), QAT_DEFLATE (Low/Medium/High), ZSTD (Low/Medium/High)."/>
                 <TextBlock Classes="subtle" TextWrapping="Wrap"
                             Text="QAT_DEFLATE scenarios report Error when Intel QAT hardware isn't present — that's expected."/>
+            </StackPanel>
+        </Border>
+
+        <Border Classes="card">
+            <StackPanel Spacing="6">
+                <TextBlock Classes="subtle" FontWeight="SemiBold" Text="CONTACT"/>
+                <Grid ColumnDefinitions="60,*" RowDefinitions="Auto,Auto,Auto,Auto">
+                    <TextBlock Grid.Row="0" Grid.Column="0" Classes="subtle" Text="Mail" VerticalAlignment="Center"/>
+                    <Button Grid.Row="0" Grid.Column="1" Classes="link" Content="ronald.de.groot@opendata.nl"
+                            Tag="mailto:ronald.de.groot@opendata.nl" Click="OnLinkClick"/>
+
+                    <TextBlock Grid.Row="1" Grid.Column="0" Classes="subtle" Text="GitHub" VerticalAlignment="Center" Margin="0,4,0,0"/>
+                    <Button Grid.Row="1" Grid.Column="1" Classes="link" Content="ronaldgithub"
+                            Tag="https://github.com/ronaldgithub" Click="OnLinkClick" Margin="0,4,0,0"/>
+
+                    <TextBlock Grid.Row="2" Grid.Column="0" Classes="subtle" Text="Home" VerticalAlignment="Center" Margin="0,4,0,0"/>
+                    <Button Grid.Row="2" Grid.Column="1" Classes="link" Content="dbaronald.com"
+                            Tag="https://dbaronald.com" Click="OnLinkClick" Margin="0,4,0,0"/>
+
+                    <TextBlock Grid.Row="3" Grid.Column="0" Classes="subtle" Text="Posts" VerticalAlignment="Center" Margin="0,4,0,0"/>
+                    <Button Grid.Row="3" Grid.Column="1" Classes="link" Content="dbaronald.nl"
+                            Tag="https://dbaronald.nl" Click="OnLinkClick" Margin="0,4,0,0"/>
+                </Grid>
             </StackPanel>
         </Border>
 

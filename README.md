@@ -25,13 +25,17 @@ The app runs 11 fixed backup scenarios:
 | QAT_DEFLATE_LOW / MEDIUM / HIGH | `COMPRESSION (ALGORITHM = QAT_DEFLATE, LEVEL = ...)` |
 | ZSTD_LOW / MEDIUM / HIGH | `COMPRESSION (ALGORITHM = ZSTD, LEVEL = ...)` |
 
-`QAT_DEFLATE` scenarios require Intel QAT hardware — without it they fail with a SQL Server error, which the app reports as `Error` (this is expected).
+`QAT_DEFLATE` requires Intel QuickAssist Technology hardware. The app detects your CPU vendor at startup — on a non-Intel machine, the three `QAT_DEFLATE_*` scenarios are shown struck through and disabled with an "Only Intel CPU" note, so they're skipped automatically instead of running and failing.
+
+Every backup statement also includes `WITH COPY_ONLY`, so benchmark runs never disturb a database's real differential base or backup chain.
 
 ## Features
 
-- **Backup tab** — pick a database and backup folder, choose which of the 11 scenarios to run, and run them in parallel or serially. Results show duration, file size, MB/sec, and a ratio (%) against the best result in the run, so you can see at a glance which algorithm won.
+- **Backup tab** — pick a database and backup folder, choose which scenarios to run, and run them in parallel or serially. Results (shown side by side with the scenario picker) include duration, file size, MB/sec, and two ratios: SIZE% (against the best result in the run) and RATIO (space saved vs. the original database size).
 - **Restore tab** — benchmark restore speed for the `.bak` files produced by the Backup tab, one scenario at a time, into its own scratch database so runs don't interfere with each other.
+- **Analyse** — a button next to the database picker runs a table-level report (size, storage compression, and counts of LOB/GUID/Unicode/fixed-width/float columns per table) so you can see *why* a database will or won't compress well before running a single backup.
 - **Connection dialog** — point the app at any SQL Server instance (not just `localhost`), with Windows or SQL Login authentication, and a "Test Connection" check before applying.
+- **Info dialog** — a built-in reference explaining how MS_XPRESS, QAT_DEFLATE, and ZSTD actually work, and how column data types (Unicode text, GUIDs, floats, already-compressed blobs, etc.) and storage features (ROW/PAGE compression, columnstore, TDE) affect what backup compression can save.
 - Every row has a SQL flyout showing the exact statement that was executed, for both backup and restore.
 
 ## Requirements

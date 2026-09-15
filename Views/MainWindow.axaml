@@ -5,10 +5,10 @@
         xmlns:converters="using:Avalonia.Data.Converters"
         x:Class="SqlBackupBenchmark.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
-        Title="SQL Server 2025 Backup Benchmark"
+        Title="SQL Server 2025 Backup/Restore Benchmark"
         Icon="/Assets/icon.ico"
-        Width="980" Height="820"
-        MinWidth="800" MinHeight="620"
+        Width="1180" Height="820"
+        MinWidth="1000" MinHeight="620"
         WindowStartupLocation="CenterScreen"
         Background="#1E1E1E">
 
@@ -144,68 +144,6 @@
                         </Grid>
                     </Border>
 
-                    <!-- Scenarios + SQL Preview -->
-                    <Grid DockPanel.Dock="Top" ColumnDefinitions="280,8,*" Height="230" Margin="0,0,0,8">
-
-                        <Border Grid.Column="0" Classes="card">
-                            <DockPanel>
-                                <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6">
-                                    <TextBlock Classes="lbl" Text="SCENARIOS" VerticalAlignment="Center"/>
-                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="4">
-                                        <Button Classes="sec" Content="All"
-                                                Command="{Binding SelectAllCommand}"
-                                                Padding="8,3" FontSize="11"/>
-                                        <Button Classes="sec" Content="None"
-                                                Command="{Binding SelectNoneCommand}"
-                                                Padding="8,3" FontSize="11"/>
-                                    </StackPanel>
-                                </DockPanel>
-                                <ListBox ItemsSource="{Binding Scenarios}"
-                                         SelectedItem="{Binding SelectedScenario}"
-                                         Background="Transparent"
-                                         BorderThickness="0">
-                                    <ListBox.ItemTemplate>
-                                        <DataTemplate x:DataType="vm:BackupScenarioItemViewModel">
-                                            <CheckBox IsChecked="{Binding IsChecked}"
-                                                      IsEnabled="{Binding !IsQatUnsupported}"
-                                                      Padding="4,1"
-                                                      ToolTip.Tip="{Binding QatUnsupportedTooltip}">
-                                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                                    <TextBlock Text="{Binding Scenario.Name}"
-                                                               Classes.strike="{Binding IsQatUnsupported}"
-                                                               FontFamily="Cascadia Code,Consolas,monospace"
-                                                               FontSize="12" Foreground="#CCCCCC"/>
-                                                    <TextBlock Text="{Binding QatUnsupportedMessage}"
-                                                               FontSize="10" FontStyle="Italic"
-                                                               Foreground="#F44747"
-                                                               VerticalAlignment="Center"/>
-                                                </StackPanel>
-                                            </CheckBox>
-                                        </DataTemplate>
-                                    </ListBox.ItemTemplate>
-                                </ListBox>
-                            </DockPanel>
-                        </Border>
-
-                        <Border Grid.Column="2" Classes="card">
-                            <DockPanel>
-                                <TextBlock DockPanel.Dock="Top" Classes="lbl"
-                                           Text="SQL PREVIEW  (click a scenario to update)"
-                                           Margin="0,0,0,6"/>
-                                <TextBox Text="{Binding SqlPreview}"
-                                         IsReadOnly="True"
-                                         AcceptsReturn="True"
-                                         TextWrapping="Wrap"
-                                         FontFamily="Cascadia Code,Consolas,monospace"
-                                         FontSize="12"
-                                         Background="#1A1A1A"
-                                         BorderBrush="#3C3C3C"
-                                         Foreground="#9CDCFE"
-                                         ScrollViewer.VerticalScrollBarVisibility="Auto"/>
-                            </DockPanel>
-                        </Border>
-                    </Grid>
-
                     <!-- Run button row -->
                     <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
                         <Button DockPanel.Dock="Left"
@@ -241,110 +179,148 @@
                                      Margin="12,0,0,0"/>
                     </DockPanel>
 
-                    <!-- Results -->
-                    <Border Classes="card">
-                        <DockPanel>
-                            <TextBlock DockPanel.Dock="Top" Classes="lbl" Text="RESULTS" Margin="0,0,0,8"/>
+                    <!-- Scenarios + Results, side by side -->
+                    <Grid ColumnDefinitions="260,8,*">
 
-                            <!-- Column headers -->
-                            <Grid DockPanel.Dock="Top"
-                                  ColumnDefinitions="28,175,80,90,52,85,52,85,65,*"
-                                  Margin="2,0,2,4">
-                                <TextBlock Grid.Column="1" Classes="lbl" Text="SCENARIO"/>
-                                <TextBlock Grid.Column="2" Classes="lbl" Text="STATUS"/>
-                                <TextBlock Grid.Column="3" Classes="lbl" Text="DURATION"/>
-                                <TextBlock Grid.Column="4" Classes="lbl" Text="DUR%" TextAlignment="Right"/>
-                                <TextBlock Grid.Column="5" Classes="lbl" Text="SIZE (MB)" TextAlignment="Right"/>
-                                <TextBlock Grid.Column="6" Classes="lbl" Text="SIZE%" TextAlignment="Right"/>
-                                <TextBlock Grid.Column="7" Classes="lbl" Text="MB/SEC" TextAlignment="Right"/>
-                                <TextBlock Grid.Column="8" Classes="lbl" Text="RATIO" TextAlignment="Right"
-                                           ToolTip.Tip="Space saved vs. the original database size — 100% × (1 − backup size ÷ database size)"/>
-                                <TextBlock Grid.Column="9" Classes="lbl" Text="MESSAGE" Margin="10,0,0,0"/>
-                            </Grid>
-
-                            <Rectangle DockPanel.Dock="Top" Height="1" Fill="#3C3C3C" Margin="0,0,0,4"/>
-
-                            <ScrollViewer VerticalScrollBarVisibility="Auto">
-                                <ItemsControl ItemsSource="{Binding Scenarios}">
-                                    <ItemsControl.ItemTemplate>
+                        <!-- Scenarios -->
+                        <Border Grid.Column="0" Classes="card">
+                            <DockPanel>
+                                <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6">
+                                    <TextBlock Classes="lbl" Text="SCENARIOS" VerticalAlignment="Center"/>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="4">
+                                        <Button Classes="sec" Content="All"
+                                                Command="{Binding SelectAllCommand}"
+                                                Padding="8,3" FontSize="11"/>
+                                        <Button Classes="sec" Content="None"
+                                                Command="{Binding SelectNoneCommand}"
+                                                Padding="8,3" FontSize="11"/>
+                                    </StackPanel>
+                                </DockPanel>
+                                <ListBox ItemsSource="{Binding Scenarios}"
+                                         Background="Transparent"
+                                         BorderThickness="0">
+                                    <ListBox.ItemTemplate>
                                         <DataTemplate x:DataType="vm:BackupScenarioItemViewModel">
-                                            <Grid ColumnDefinitions="28,175,80,90,52,85,52,85,65,*"
-                                                  Margin="2,2">
-
-                                                <!-- SQL flyout button -->
-                                                <Button Grid.Column="0"
-                                                        Background="Transparent"
-                                                        BorderBrush="#505050" BorderThickness="1"
-                                                        CornerRadius="3" Padding="2,1"
-                                                        FontSize="10" Foreground="#777777"
-                                                        Content="SQL"
-                                                        VerticalAlignment="Center"
-                                                        ToolTip.Tip="View SQL statement">
-                                                    <Button.Flyout>
-                                                        <Flyout Placement="RightEdgeAlignedTop">
-                                                            <TextBox Text="{Binding LastSql}"
-                                                                     IsReadOnly="True"
-                                                                     AcceptsReturn="True"
-                                                                     Width="520" Height="115"
-                                                                     FontFamily="Cascadia Code,Consolas,monospace"
-                                                                     FontSize="11"
-                                                                     Background="#1A1A1A"
-                                                                     BorderBrush="#3C3C3C"
-                                                                     Foreground="#9CDCFE"/>
-                                                        </Flyout>
-                                                    </Button.Flyout>
-                                                </Button>
-
-                                                <TextBlock Grid.Column="1"
-                                                           Text="{Binding Scenario.Name}"
+                                            <CheckBox IsChecked="{Binding IsChecked}"
+                                                      IsEnabled="{Binding !IsQatUnsupported}"
+                                                      Padding="4,1"
+                                                      ToolTip.Tip="{Binding QatUnsupportedTooltip}">
+                                                <TextBlock Text="{Binding Scenario.Name}"
                                                            Classes.strike="{Binding IsQatUnsupported}"
                                                            FontFamily="Cascadia Code,Consolas,monospace"
-                                                           FontSize="12" Foreground="#CCCCCC"
-                                                           VerticalAlignment="Center"/>
-                                                <TextBlock Grid.Column="2"
-                                                           Text="{Binding StatusText}"
-                                                           FontSize="12" VerticalAlignment="Center"
-                                                           Foreground="{Binding StatusColor}"/>
-                                                <TextBlock Grid.Column="3"
-                                                           Text="{Binding DurationText}"
-                                                           FontSize="12" Foreground="#CCCCCC"
-                                                           VerticalAlignment="Center"/>
-                                                <TextBlock Grid.Column="4"
-                                                           Text="{Binding DurationRatioText}"
-                                                           FontSize="11"
-                                                           Foreground="{Binding DurationRatioColor}"
-                                                           TextAlignment="Right" VerticalAlignment="Center"/>
-                                                <TextBlock Grid.Column="5"
-                                                           Text="{Binding FileSizeMbText}"
-                                                           FontSize="12" Foreground="#CCCCCC"
-                                                           TextAlignment="Right" VerticalAlignment="Center"/>
-                                                <TextBlock Grid.Column="6"
-                                                           Text="{Binding FileSizeRatioText}"
-                                                           FontSize="11"
-                                                           Foreground="{Binding FileSizeRatioColor}"
-                                                           TextAlignment="Right" VerticalAlignment="Center"/>
-                                                <TextBlock Grid.Column="7"
-                                                           Text="{Binding MbPerSecText}"
-                                                           FontSize="12" Foreground="#9CDCFE"
-                                                           TextAlignment="Right" VerticalAlignment="Center"/>
-                                                <TextBlock Grid.Column="8"
-                                                           Text="{Binding CompressionRatioText}"
-                                                           FontSize="12" Foreground="#CCCCCC"
-                                                           TextAlignment="Right" VerticalAlignment="Center"/>
-                                                <TextBlock Grid.Column="9"
-                                                           Text="{Binding DisplayMessage}"
-                                                           FontSize="12" Foreground="#F44747"
-                                                           TextTrimming="CharacterEllipsis"
-                                                           VerticalAlignment="Center"
-                                                           Margin="10,0,0,0"
-                                                           ToolTip.Tip="{Binding DisplayMessage}"/>
-                                            </Grid>
+                                                           FontSize="11" Foreground="#CCCCCC"/>
+                                            </CheckBox>
                                         </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </ScrollViewer>
-                        </DockPanel>
-                    </Border>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </DockPanel>
+                        </Border>
+
+                        <!-- Results -->
+                        <Border Grid.Column="2" Classes="card">
+                            <DockPanel>
+                                <TextBlock DockPanel.Dock="Top" Classes="lbl" Text="RESULTS" Margin="0,0,0,8"/>
+
+                                <!-- Column headers -->
+                                <Grid DockPanel.Dock="Top"
+                                      ColumnDefinitions="24,*,62,66,40,66,40,60,46"
+                                      Margin="2,0,2,4">
+                                    <TextBlock Grid.Column="1" Classes="lbl" Text="SCENARIO"/>
+                                    <TextBlock Grid.Column="2" Classes="lbl" Text="STATUS"/>
+                                    <TextBlock Grid.Column="3" Classes="lbl" Text="DURATION"/>
+                                    <TextBlock Grid.Column="4" Classes="lbl" Text="DUR%" TextAlignment="Right"/>
+                                    <TextBlock Grid.Column="5" Classes="lbl" Text="SIZE (MB)" TextAlignment="Right"/>
+                                    <TextBlock Grid.Column="6" Classes="lbl" Text="SIZE%" TextAlignment="Right"/>
+                                    <TextBlock Grid.Column="7" Classes="lbl" Text="MB/SEC" TextAlignment="Right"/>
+                                    <TextBlock Grid.Column="8" Classes="lbl" Text="RATIO" TextAlignment="Right"
+                                               ToolTip.Tip="Space saved vs. the original database size — 100% × (1 − backup size ÷ database size)"/>
+                                </Grid>
+
+                                <Rectangle DockPanel.Dock="Top" Height="1" Fill="#3C3C3C" Margin="0,0,0,4"/>
+
+                                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                    <ItemsControl ItemsSource="{Binding Scenarios}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:BackupScenarioItemViewModel">
+                                                <Grid ColumnDefinitions="24,*,62,66,40,66,40,60,46" Margin="2,2">
+
+                                                    <!-- SQL flyout button -->
+                                                    <Button Grid.Column="0"
+                                                            Background="Transparent"
+                                                            BorderBrush="#505050" BorderThickness="1"
+                                                            CornerRadius="3" Padding="1,0"
+                                                            FontSize="9" Foreground="#777777"
+                                                            Content="SQL"
+                                                            VerticalAlignment="Center"
+                                                            ToolTip.Tip="View SQL statement">
+                                                        <Button.Flyout>
+                                                            <Flyout Placement="RightEdgeAlignedTop">
+                                                                <TextBox Text="{Binding LastSql}"
+                                                                         IsReadOnly="True"
+                                                                         AcceptsReturn="True"
+                                                                         Width="520" Height="115"
+                                                                         FontFamily="Cascadia Code,Consolas,monospace"
+                                                                         FontSize="11"
+                                                                         Background="#1A1A1A"
+                                                                         BorderBrush="#3C3C3C"
+                                                                         Foreground="#9CDCFE"/>
+                                                            </Flyout>
+                                                        </Button.Flyout>
+                                                    </Button>
+
+                                                    <Grid Grid.Column="1" ColumnDefinitions="Auto,8,*">
+                                                        <TextBlock Grid.Column="0"
+                                                                   Text="{Binding Scenario.Name}"
+                                                                   Classes.strike="{Binding IsQatUnsupported}"
+                                                                   FontFamily="Cascadia Code,Consolas,monospace"
+                                                                   FontSize="11" Foreground="#CCCCCC"
+                                                                   VerticalAlignment="Center"/>
+                                                        <TextBlock Grid.Column="2"
+                                                                   Text="{Binding DisplayMessage}"
+                                                                   FontSize="10" Foreground="#F44747"
+                                                                   TextTrimming="CharacterEllipsis"
+                                                                   VerticalAlignment="Center"
+                                                                   ToolTip.Tip="{Binding DisplayMessage}"/>
+                                                    </Grid>
+                                                    <TextBlock Grid.Column="2"
+                                                               Text="{Binding StatusText}"
+                                                               FontSize="11" VerticalAlignment="Center"
+                                                               TextTrimming="CharacterEllipsis"
+                                                               Foreground="{Binding StatusColor}"/>
+                                                    <TextBlock Grid.Column="3"
+                                                               Text="{Binding DurationText}"
+                                                               FontSize="11" Foreground="#CCCCCC"
+                                                               VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="4"
+                                                               Text="{Binding DurationRatioText}"
+                                                               FontSize="10"
+                                                               Foreground="{Binding DurationRatioColor}"
+                                                               TextAlignment="Right" VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="5"
+                                                               Text="{Binding FileSizeMbText}"
+                                                               FontSize="11" Foreground="#CCCCCC"
+                                                               TextAlignment="Right" VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="6"
+                                                               Text="{Binding FileSizeRatioText}"
+                                                               FontSize="10"
+                                                               Foreground="{Binding FileSizeRatioColor}"
+                                                               TextAlignment="Right" VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="7"
+                                                               Text="{Binding MbPerSecText}"
+                                                               FontSize="11" Foreground="#9CDCFE"
+                                                               TextAlignment="Right" VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="8"
+                                                               Text="{Binding CompressionRatioText}"
+                                                               FontSize="11" Foreground="#CCCCCC"
+                                                               TextAlignment="Right" VerticalAlignment="Center"/>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                            </DockPanel>
+                        </Border>
+                    </Grid>
 
                 </DockPanel>
             </TabItem>
@@ -409,7 +385,7 @@
                                                 <TextBlock Grid.Column="2"
                                                            Text="{Binding Scenario.Name}"
                                                            FontFamily="Cascadia Code,Consolas,monospace"
-                                                           FontSize="12"
+                                                           FontSize="11"
                                                            Foreground="{Binding RowForeground}"
                                                            VerticalAlignment="Center"/>
                                                 <ComboBox Grid.Column="4"
@@ -491,8 +467,8 @@
                                                 <Button Grid.Column="0"
                                                         Background="Transparent"
                                                         BorderBrush="#505050" BorderThickness="1"
-                                                        CornerRadius="3" Padding="2,1"
-                                                        FontSize="10" Foreground="#777777"
+                                                        CornerRadius="3" Padding="1,0"
+                                                        FontSize="9" Foreground="#777777"
                                                         Content="SQL"
                                                         VerticalAlignment="Center"
                                                         ToolTip.Tip="View SQL statement">
@@ -514,38 +490,38 @@
                                                 <TextBlock Grid.Column="1"
                                                            Text="{Binding Scenario.Name}"
                                                            FontFamily="Cascadia Code,Consolas,monospace"
-                                                           FontSize="12"
+                                                           FontSize="11"
                                                            Foreground="{Binding RowForeground}"
                                                            VerticalAlignment="Center"/>
                                                 <TextBlock Grid.Column="2"
                                                            Text="{Binding StatusText}"
-                                                           FontSize="12" VerticalAlignment="Center"
+                                                           FontSize="11" VerticalAlignment="Center"
                                                            Foreground="{Binding StatusColor}"/>
                                                 <TextBlock Grid.Column="3"
                                                            Text="{Binding DurationText}"
-                                                           FontSize="12" Foreground="#CCCCCC"
+                                                           FontSize="11" Foreground="#CCCCCC"
                                                            VerticalAlignment="Center"/>
                                                 <TextBlock Grid.Column="4"
                                                            Text="{Binding DurationRatioText}"
-                                                           FontSize="11"
+                                                           FontSize="10"
                                                            Foreground="{Binding DurationRatioColor}"
                                                            TextAlignment="Right" VerticalAlignment="Center"/>
                                                 <TextBlock Grid.Column="5"
                                                            Text="{Binding FileSizeMbText}"
-                                                           FontSize="12" Foreground="#CCCCCC"
+                                                           FontSize="11" Foreground="#CCCCCC"
                                                            TextAlignment="Right" VerticalAlignment="Center"/>
                                                 <TextBlock Grid.Column="6"
                                                            Text="{Binding FileSizeRatioText}"
-                                                           FontSize="11"
+                                                           FontSize="10"
                                                            Foreground="{Binding FileSizeRatioColor}"
                                                            TextAlignment="Right" VerticalAlignment="Center"/>
                                                 <TextBlock Grid.Column="7"
                                                            Text="{Binding MbPerSecText}"
-                                                           FontSize="12" Foreground="#9CDCFE"
+                                                           FontSize="11" Foreground="#9CDCFE"
                                                            TextAlignment="Right" VerticalAlignment="Center"/>
                                                 <TextBlock Grid.Column="8"
                                                            Text="{Binding ErrorMessage}"
-                                                           FontSize="12" Foreground="#F44747"
+                                                           FontSize="10" Foreground="#F44747"
                                                            TextTrimming="CharacterEllipsis"
                                                            VerticalAlignment="Center"
                                                            Margin="10,0,0,0"
