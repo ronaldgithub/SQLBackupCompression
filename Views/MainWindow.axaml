@@ -106,7 +106,14 @@
                                       MinWidth="200">
                                 <ComboBox.ItemTemplate>
                                     <DataTemplate x:DataType="models:DatabaseInfo">
-                                        <TextBlock Text="{Binding DisplayText}"/>
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <TextBlock Text="{Binding Name}"
+                                                       FontSize="13" Foreground="#CCCCCC"
+                                                       VerticalAlignment="Center"/>
+                                            <TextBlock Text="{Binding SizeBracketText}"
+                                                       FontSize="10" Foreground="#888888"
+                                                       VerticalAlignment="Center"/>
+                                        </StackPanel>
                                     </DataTemplate>
                                 </ComboBox.ItemTemplate>
                             </ComboBox>

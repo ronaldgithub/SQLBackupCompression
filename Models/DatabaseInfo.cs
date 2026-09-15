@@ -9,5 +9,7 @@ public class DatabaseInfo
         ? $"{SizeMB / 1024:0.#} GB"
         : $"{SizeMB:0} MB";
 
-    public string DisplayText => $"{Name} [{SizeText}]";
+    public string SizeBracketText => $"[{SizeText}]";
+
+    public string DisplayText => $"{Name} {SizeBracketText}";
 }
