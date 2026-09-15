@@ -27,8 +27,10 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty] private string _statusMessage = "Ready";
     [ObservableProperty] private string _connectionSummary = "";
     [ObservableProperty] private bool _isRunning;
-    [ObservableProperty] private bool _isParallelRun = true;
+    [ObservableProperty] private bool _isParallelRun;
     [ObservableProperty] private BackupScenarioItemViewModel? _selectedScenario;
+
+    public string CpuVendor => CpuInfo.VendorName;
 
     public bool IsSerialRun
     {
@@ -107,7 +109,7 @@ public partial class MainWindowViewModel : ViewModelBase
     [RelayCommand]
     private void SelectAll()
     {
-        foreach (var s in Scenarios) s.IsChecked = true;
+        foreach (var s in Scenarios.Where(s => !s.IsQatUnsupported)) s.IsChecked = true;
     }
 
     [RelayCommand]
@@ -121,8 +123,9 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         var db = SelectedDatabase?.Name;
         if (string.IsNullOrWhiteSpace(db)) return;
+        var databaseSizeMb = SelectedDatabase!.SizeMB;
 
-        var selected = Scenarios.Where(s => s.IsChecked).ToList();
+        var selected = Scenarios.Where(s => s.IsChecked && !s.IsQatUnsupported).ToList();
         if (selected.Count == 0)
         {
             StatusMessage = "No scenarios selected.";
@@ -139,7 +142,7 @@ public partial class MainWindowViewModel : ViewModelBase
         if (IsParallelRun)
         {
             foreach (var s in selected) s.SetRunning();
-            var tasks = selected.Select(vm => RunScenarioAsync(vm, db, timestamp, _cts.Token));
+            var tasks = selected.Select(vm => RunScenarioAsync(vm, db, databaseSizeMb, timestamp, _cts.Token));
             await Task.WhenAll(tasks);
         }
         else
@@ -151,7 +154,7 @@ public partial class MainWindowViewModel : ViewModelBase
                 StatusMessage = $"[{vm.Scenario.Name}] running...";
                 var result = await _service.RunBackupAsync(vm.Scenario, database: db, backupPath: BackupPath,
                     timestamp: timestamp, ct: _cts.Token);
-                vm.ApplyResult(result);
+                vm.ApplyResult(result, databaseSizeMb);
             }
         }
 
@@ -177,11 +180,12 @@ public partial class MainWindowViewModel : ViewModelBase
     private async Task RunScenarioAsync(
         BackupScenarioItemViewModel vm,
         string database,
+        double databaseSizeMb,
         string timestamp,
         CancellationToken ct)
     {
         var result = await _service.RunBackupAsync(vm.Scenario, database, BackupPath, timestamp, ct: ct);
-        Dispatcher.UIThread.Post(() => vm.ApplyResult(result));
+        Dispatcher.UIThread.Post(() => vm.ApplyResult(result, databaseSizeMb));
     }
 
     [RelayCommand]

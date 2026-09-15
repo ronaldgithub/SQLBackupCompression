@@ -1,0 +1,335 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="SqlBackupBenchmark.Views.InfoWindow"
+        Title="Compression Algorithms"
+        Icon="/Assets/icon.ico"
+        Width="780" Height="760"
+        WindowStartupLocation="CenterOwner"
+        Background="#1E1E1E">
+
+    <Window.Styles>
+        <Style Selector="TextBlock.h1">
+            <Setter Property="FontSize" Value="20"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="#CCCCCC"/>
+        </Style>
+        <Style Selector="TextBlock.h2">
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="#4EC9B0"/>
+        </Style>
+        <Style Selector="TextBlock.h3">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#DCDCAA"/>
+        </Style>
+        <Style Selector="TextBlock.bullet">
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="Foreground" Value="#CCCCCC"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="LineHeight" Value="18"/>
+            <Setter Property="Margin" Value="14,0,0,0"/>
+        </Style>
+        <Style Selector="TextBlock.body">
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="Foreground" Value="#CCCCCC"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="LineHeight" Value="18"/>
+        </Style>
+        <Style Selector="TextBlock.subtle">
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="Foreground" Value="#888888"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        <Style Selector="Run.label">
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#9CDCFE"/>
+        </Style>
+        <Style Selector="Border.card">
+            <Setter Property="Background" Value="#252526"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="14"/>
+        </Style>
+        <Style Selector="Border.code">
+            <Setter Property="Background" Value="#1A1A1A"/>
+            <Setter Property="BorderBrush" Value="#3C3C3C"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="Padding" Value="10,8"/>
+        </Style>
+        <Style Selector="TextBlock.code">
+            <Setter Property="FontFamily" Value="Cascadia Code,Consolas,monospace"/>
+            <Setter Property="FontSize" Value="11.5"/>
+            <Setter Property="Foreground" Value="#9CDCFE"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        <Style Selector="Button.sec">
+            <Setter Property="Background" Value="#3C3C3C"/>
+            <Setter Property="Foreground" Value="#CCCCCC"/>
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.sec:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#505050"/>
+        </Style>
+        <Style Selector="TextBlock.th">
+            <Setter Property="FontSize" Value="11.5"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#888888"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        <Style Selector="TextBlock.td">
+            <Setter Property="FontSize" Value="11.5"/>
+            <Setter Property="Foreground" Value="#CCCCCC"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+    </Window.Styles>
+
+    <DockPanel Margin="22">
+
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="10" Margin="0,0,0,14">
+            <TextBlock Text="SQL Server Backup Compression Algorithms" Classes="h1" TextWrapping="Wrap"/>
+        </StackPanel>
+
+        <Button DockPanel.Dock="Bottom" Classes="sec" Content="Close" Click="OnCloseClick"
+                HorizontalAlignment="Right" Margin="0,14,0,0"/>
+
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel Spacing="14">
+
+                <TextBlock Classes="body"
+                           Text="All three use the same basic trick, LZ77: find repeated byte sequences and replace later copies with a short reference to the earlier one. They differ in what they do after that and where the work runs."/>
+
+                <!-- MS_XPRESS -->
+                <Border Classes="card">
+                    <StackPanel Spacing="6">
+                        <TextBlock Classes="h2" Text="MS_XPRESS — the original default"/>
+                        <TextBlock Classes="body"><Run Classes="label" Text="What it is: "/><Run Text="Microsoft's own algorithm. Windows also uses members of the same Xpress family for hibernation files, WIM images and SMB compression."/></TextBlock>
+                        <TextBlock Classes="body"><Run Classes="label" Text="How it works: "/><Run Text="LZ77 with a very light encoding step. It's tuned for speed, not maximum compression."/></TextBlock>
+                        <TextBlock Classes="body"><Run Classes="label" Text="Available: "/><Run Text="SQL Server 2008 onward. It's what WITH COMPRESSION has always meant."/></TextBlock>
+                        <TextBlock Classes="body"><Run Classes="label" Text="Tuning: "/><Run Text="None. There are no levels."/></TextBlock>
+                        <TextBlock Classes="body"><Run Classes="label" Text="Trade-off: "/><Run Text="Fast and cheap on CPU, with a moderate ratio. It's the safe baseline."/></TextBlock>
+                    </StackPanel>
+                </Border>
+
+                <!-- QAT_DEFLATE -->
+                <Border Classes="card">
+                    <StackPanel Spacing="6">
+                        <TextBlock Classes="h2" Text="QAT_DEFLATE — hardware offload (SQL Server 2022)"/>
+                        <TextBlock Classes="body"><Run Classes="label" Text="What it is: "/><Run Text="DEFLATE, the same algorithm as zip and gzip: LZ77 plus Huffman coding. It runs through Intel QuickAssist Technology (QAT)."/></TextBlock>
+                        <TextBlock Classes="body"><Run Classes="label" Text="Hardware mode: "/><Run Text="The work runs on a QAT accelerator, either built into 4th-gen and newer Xeon Scalable CPUs or on a PCIe card. The main CPU stays nearly free, which matters on busy OLTP servers that can't give up CPU during backups."/></TextBlock>
+                        <TextBlock Classes="body"><Run Classes="label" Text="Software mode: "/><Run Text="If there's no QAT device, it falls back to Intel's optimized ISA-L library on the normal CPU."/></TextBlock>
+                        <TextBlock Classes="body"><Run Classes="label" Text="Setup: "/><Run Text="You need Intel's QAT drivers, then:"/></TextBlock>
+                        <Border Classes="code">
+                            <TextBlock Classes="code" Text="ALTER SERVER CONFIGURATION SET HARDWARE_OFFLOAD = ON (ACCELERATOR = QAT, MODE = HARDWARE);&#10;-- then restart the instance"/>
+                        </Border>
+                        <TextBlock Classes="subtle" Text="Hardware mode is an Enterprise feature. Software mode also works in Standard."/>
+                        <TextBlock Classes="body"><Run Classes="label" Text="Trade-off: "/><Run Text="Usually a better ratio than XPRESS. The main benefit is moving the compression cost off the CPU, and that only pays off with the right Intel hardware."/></TextBlock>
+                    </StackPanel>
+                </Border>
+
+                <!-- ZSTD -->
+                <Border Classes="card">
+                    <StackPanel Spacing="6">
+                        <TextBlock Classes="h2" Text="ZSTD — Zstandard (SQL Server 2025)"/>
+                        <TextBlock Classes="body"><Run Classes="label" Text="What it is: "/><Run Text="An open-source algorithm written by Yann Collet at Facebook/Meta, released in 2016. It's now used widely: Linux kernel, file systems, package managers, Kafka, and more."/></TextBlock>
+                        <TextBlock Classes="body"><Run Classes="label" Text="How it works: "/><Run Text="LZ77 plus modern entropy coding (Finite State Entropy and Huffman). It gets a better ratio than DEFLATE at similar or higher speed, and decompression is very fast."/></TextBlock>
+                        <TextBlock Classes="body"><Run Classes="label" Text="Tuning: "/><Run Text="Levels. SQL Server exposes three: LOW (default), MEDIUM and HIGH. Higher levels shrink the file more and use more CPU."/></TextBlock>
+                        <Border Classes="code">
+                            <TextBlock Classes="code" Text="BACKUP DATABASE X TO DISK = N'...' WITH COMPRESSION (ALGORITHM = ZSTD, LEVEL = MEDIUM);"/>
+                        </Border>
+                        <TextBlock Classes="body"><Run Classes="label" Text="Hardware: "/><Run Text="None needed. It's plain software."/></TextBlock>
+                        <TextBlock Classes="body"><Run Classes="label" Text="Trade-off: "/><Run Text="Usually beats XPRESS on both ratio and throughput, and the levels let you choose between speed and size."/></TextBlock>
+                    </StackPanel>
+                </Border>
+
+                <!-- Side by side table -->
+                <StackPanel Spacing="6">
+                    <TextBlock Classes="h2" Text="Side by side"/>
+                    <Border Classes="card" Padding="14,10">
+                        <Grid ColumnDefinitions="150,*,*,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+
+                            <TextBlock Grid.Row="0" Grid.Column="1" Classes="th" Text="MS_XPRESS" Margin="0,0,16,0"/>
+                            <TextBlock Grid.Row="0" Grid.Column="2" Classes="th" Text="QAT_DEFLATE" Margin="0,0,16,0"/>
+                            <TextBlock Grid.Row="0" Grid.Column="3" Classes="th" Text="ZSTD" Margin="0,0,16,0"/>
+
+                            <Rectangle Grid.Row="1" Grid.ColumnSpan="4" Height="1" Fill="#3C3C3C" Margin="0,4,0,6"/>
+
+                            <TextBlock Grid.Row="2" Grid.Column="0" Classes="th" Text="Algorithm family" Margin="0,3,16,3"/>
+                            <TextBlock Grid.Row="2" Grid.Column="1" Classes="td" Text="LZ77 (Microsoft)" Margin="0,3,16,3"/>
+                            <TextBlock Grid.Row="2" Grid.Column="2" Classes="td" Text="LZ77 + Huffman (zip/gzip)" Margin="0,3,16,3"/>
+                            <TextBlock Grid.Row="2" Grid.Column="3" Classes="td" Text="LZ77 + FSE/Huffman" Margin="0,3,16,3"/>
+
+                            <TextBlock Grid.Row="3" Grid.Column="0" Classes="th" Text="Minimum version" Margin="0,3,16,3"/>
+                            <TextBlock Grid.Row="3" Grid.Column="1" Classes="td" Text="2008" Margin="0,3,16,3"/>
+                            <TextBlock Grid.Row="3" Grid.Column="2" Classes="td" Text="2022" Margin="0,3,16,3"/>
+                            <TextBlock Grid.Row="3" Grid.Column="3" Classes="td" Text="2025" Margin="0,3,16,3"/>
+
+                            <TextBlock Grid.Row="4" Grid.Column="0" Classes="th" Text="Runs on" Margin="0,3,16,3"/>
+                            <TextBlock Grid.Row="4" Grid.Column="1" Classes="td" Text="CPU" Margin="0,3,16,3"/>
+                            <TextBlock Grid.Row="4" Grid.Column="2" Classes="td" Text="QAT accelerator, or CPU fallback" Margin="0,3,16,3"/>
+                            <TextBlock Grid.Row="4" Grid.Column="3" Classes="td" Text="CPU" Margin="0,3,16,3"/>
+
+                            <TextBlock Grid.Row="5" Grid.Column="0" Classes="th" Text="Levels" Margin="0,3,16,3"/>
+                            <TextBlock Grid.Row="5" Grid.Column="1" Classes="td" Text="No" Margin="0,3,16,3"/>
+                            <TextBlock Grid.Row="5" Grid.Column="2" Classes="td" Text="No" Margin="0,3,16,3"/>
+                            <TextBlock Grid.Row="5" Grid.Column="3" Classes="td" Text="LOW / MEDIUM / HIGH" Margin="0,3,16,3"/>
+
+                            <TextBlock Grid.Row="6" Grid.Column="0" Classes="th" Text="Typical ratio" Margin="0,3,16,3"/>
+                            <TextBlock Grid.Row="6" Grid.Column="1" Classes="td" Text="Baseline" Margin="0,3,16,3"/>
+                            <TextBlock Grid.Row="6" Grid.Column="2" Classes="td" Text="Better" Margin="0,3,16,3"/>
+                            <TextBlock Grid.Row="6" Grid.Column="3" Classes="td" Text="Better to best" Margin="0,3,16,3"/>
+
+                            <TextBlock Grid.Row="7" Grid.Column="0" Classes="th" Text="CPU cost on host" Margin="0,3,16,3"/>
+                            <TextBlock Grid.Row="7" Grid.Column="1" Classes="td" Text="Low" Margin="0,3,16,3"/>
+                            <TextBlock Grid.Row="7" Grid.Column="2" Classes="td" Text="Very low in hardware mode" Margin="0,3,16,3"/>
+                            <TextBlock Grid.Row="7" Grid.Column="3" Classes="td" Text="Low to higher, depending on level" Margin="0,3,16,3"/>
+
+                            <TextBlock Grid.Row="8" Grid.Column="0" Classes="th" Text="Special requirements" Margin="0,3,16,3" TextWrapping="Wrap"/>
+                            <TextBlock Grid.Row="8" Grid.Column="1" Classes="td" Text="None" Margin="0,3,16,3"/>
+                            <TextBlock Grid.Row="8" Grid.Column="2" Classes="td" Text="Intel QAT and drivers for hardware mode" Margin="0,3,16,3"/>
+                            <TextBlock Grid.Row="8" Grid.Column="3" Classes="td" Text="None" Margin="0,3,16,3"/>
+
+                        </Grid>
+                    </Border>
+                </StackPanel>
+
+                <TextBlock Classes="body"><Run Classes="label" Text="Restores: "/><Run Text="You don't specify an algorithm when restoring, because SQL Server reads it from the backup header. A 2022 or 2025 backup can't be restored on an older version anyway, so the newer algorithms don't cost you any compatibility in practice."/></TextBlock>
+
+                <TextBlock Classes="body"><Run Classes="label" Text="Which to pick: "/><Run Text="Real results depend on your data. Already-compressed data barely shrinks with any of them. On 2025, ZSTD LOW is a good default to test against XPRESS. QAT only makes sense if the server has QAT hardware and CPU during backups is tight."/></TextBlock>
+
+                <Rectangle Height="1" Fill="#3C3C3C" Margin="0,8"/>
+
+                <TextBlock Classes="h1" FontSize="17" Text="How column data types affect backup compression"/>
+
+                <TextBlock Classes="body"
+                           Text="Backup compression doesn't know about columns. It compresses a stream of 8 KB pages. What it can save depends on how repetitive the bytes on those pages are, and the data types (and how they're stored) decide that."/>
+
+                <!-- Types that compress well -->
+                <StackPanel Spacing="6">
+                    <TextBlock Classes="h2" Text="Types that compress well"/>
+                    <Border Classes="card" Padding="14,10">
+                        <Grid ColumnDefinitions="230,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+                            <TextBlock Grid.Row="0" Grid.Column="0" Classes="th" Text="Data" Margin="0,0,16,0"/>
+                            <TextBlock Grid.Row="0" Grid.Column="1" Classes="th" Text="Why it compresses"/>
+                            <Rectangle Grid.Row="1" Grid.ColumnSpan="2" Height="1" Fill="#3C3C3C" Margin="0,4,0,6"/>
+
+                            <TextBlock Grid.Row="2" Grid.Column="0" Classes="td" Text="nchar/nvarchar with Western text" Margin="0,5,16,5" TextWrapping="Wrap"/>
+                            <TextBlock Grid.Row="2" Grid.Column="1" Classes="td" Text="UTF-16 stores A as 41 00, so every other byte is zero and gets squeezed out easily. This is often the largest single gain." Margin="0,5" TextWrapping="Wrap"/>
+
+                            <TextBlock Grid.Row="3" Grid.Column="0" Classes="td" Text="char(n)/nchar(n) fixed width" Margin="0,5,16,5" TextWrapping="Wrap"/>
+                            <TextBlock Grid.Row="3" Grid.Column="1" Classes="td" Text="Short values are padded with trailing spaces, which are long runs of the same byte." Margin="0,5" TextWrapping="Wrap"/>
+
+                            <TextBlock Grid.Row="4" Grid.Column="0" Classes="td" Text="int/bigint/decimal with small values" Margin="0,5,16,5" TextWrapping="Wrap"/>
+                            <TextBlock Grid.Row="4" Grid.Column="1" Classes="td" Text="A bigint holding 42 is 7 zero bytes and one real byte." Margin="0,5" TextWrapping="Wrap"/>
+
+                            <TextBlock Grid.Row="5" Grid.Column="0" Classes="td" Text="Repeated categorical strings" Margin="0,5,16,5" TextWrapping="Wrap"/>
+                            <TextBlock Grid.Row="5" Grid.Column="1" Classes="td" Text="Status codes, country names and product categories repeat on every page." Margin="0,5" TextWrapping="Wrap"/>
+
+                            <TextBlock Grid.Row="6" Grid.Column="0" Classes="td" Text="Text such as logs, JSON in nvarchar, XML" Margin="0,5,16,5" TextWrapping="Wrap"/>
+                            <TextBlock Grid.Row="6" Grid.Column="1" Classes="td" Text="Natural language and markup have lots of repeated tokens." Margin="0,5" TextWrapping="Wrap"/>
+
+                            <TextBlock Grid.Row="7" Grid.Column="0" Classes="td" Text="Partly empty pages" Margin="0,5,16,5" TextWrapping="Wrap"/>
+                            <TextBlock Grid.Row="7" Grid.Column="1" Classes="td" Text="A low fill factor, or pages that fragmented after deletes, leave zeroed free space inside the page." Margin="0,5" TextWrapping="Wrap"/>
+                        </Grid>
+                    </Border>
+                </StackPanel>
+
+                <!-- Types that compress poorly -->
+                <StackPanel Spacing="6">
+                    <TextBlock Classes="h2" Text="Types that compress poorly"/>
+                    <Border Classes="card" Padding="14,10">
+                        <Grid ColumnDefinitions="230,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+                            <TextBlock Grid.Row="0" Grid.Column="0" Classes="th" Text="Data" Margin="0,0,16,0"/>
+                            <TextBlock Grid.Row="0" Grid.Column="1" Classes="th" Text="Why"/>
+                            <Rectangle Grid.Row="1" Grid.ColumnSpan="2" Height="1" Fill="#3C3C3C" Margin="0,4,0,6"/>
+
+                            <TextBlock Grid.Row="2" Grid.Column="0" Classes="td" Text="uniqueidentifier from NEWID()" Margin="0,5,16,5" TextWrapping="Wrap"/>
+                            <TextBlock Grid.Row="2" Grid.Column="1" Classes="td" Text="16 random bytes. Random data can't be compressed. NEWSEQUENTIALID() is somewhat better." Margin="0,5" TextWrapping="Wrap"/>
+
+                            <TextBlock Grid.Row="3" Grid.Column="0" Classes="td" Text="Hashes and tokens (varbinary SHA-256, API keys)" Margin="0,5,16,5" TextWrapping="Wrap"/>
+                            <TextBlock Grid.Row="3" Grid.Column="1" Classes="td" Text="Random by design." Margin="0,5" TextWrapping="Wrap"/>
+
+                            <TextBlock Grid.Row="4" Grid.Column="0" Classes="td" Text="float/real measurements" Margin="0,5,16,5" TextWrapping="Wrap"/>
+                            <TextBlock Grid.Row="4" Grid.Column="1" Classes="td" Text="The low bits of the mantissa are noisy." Margin="0,5" TextWrapping="Wrap"/>
+
+                            <TextBlock Grid.Row="5" Grid.Column="0" Classes="td" Text="Already-compressed files in varbinary(max) or FILESTREAM" Margin="0,5,16,5" TextWrapping="Wrap"/>
+                            <TextBlock Grid.Row="5" Grid.Column="1" Classes="td" Text="JPEG, PNG, MP4, PDF, ZIP, and docx/xlsx (which are zip files)." Margin="0,5" TextWrapping="Wrap"/>
+
+                            <TextBlock Grid.Row="6" Grid.Column="0" Classes="td" Text="COMPRESS() output" Margin="0,5,16,5" TextWrapping="Wrap"/>
+                            <TextBlock Grid.Row="6" Grid.Column="1" Classes="td" Text="It's already GZip." Margin="0,5" TextWrapping="Wrap"/>
+
+                            <TextBlock Grid.Row="7" Grid.Column="0" Classes="td" Text="Encrypted columns (ENCRYPTBYKEY, Always Encrypted)" Margin="0,5,16,5" TextWrapping="Wrap"/>
+                            <TextBlock Grid.Row="7" Grid.Column="1" Classes="td" Text="Ciphertext looks random." Margin="0,5" TextWrapping="Wrap"/>
+                        </Grid>
+                    </Border>
+                </StackPanel>
+
+                <!-- Storage features that use up the savings -->
+                <StackPanel Spacing="6">
+                    <TextBlock Classes="h2" Text="Storage features that &quot;use up&quot; the savings"/>
+                    <Border Classes="card" Padding="14,10">
+                        <Grid ColumnDefinitions="230,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto">
+                            <TextBlock Grid.Row="0" Grid.Column="0" Classes="th" Text="Storage" Margin="0,0,16,0"/>
+                            <TextBlock Grid.Row="0" Grid.Column="1" Classes="th" Text="Effect on backup compression"/>
+                            <Rectangle Grid.Row="1" Grid.ColumnSpan="2" Height="1" Fill="#3C3C3C" Margin="0,4,0,6"/>
+
+                            <TextBlock Grid.Row="2" Grid.Column="0" Classes="td" Text="ROW compression" Margin="0,5,16,5" TextWrapping="Wrap"/>
+                            <TextBlock Grid.Row="2" Grid.Column="1" Classes="td" Text="Already removes the zero bytes and trailing padding, so that easy gain is gone." Margin="0,5" TextWrapping="Wrap"/>
+
+                            <TextBlock Grid.Row="3" Grid.Column="0" Classes="td" Text="PAGE compression" Margin="0,5,16,5" TextWrapping="Wrap"/>
+                            <TextBlock Grid.Row="3" Grid.Column="1" Classes="td" Text="Adds prefix and dictionary compression on top, so even less is left." Margin="0,5" TextWrapping="Wrap"/>
+
+                            <TextBlock Grid.Row="4" Grid.Column="0" Classes="td" Text="Columnstore" Margin="0,5,16,5" TextWrapping="Wrap"/>
+                            <TextBlock Grid.Row="4" Grid.Column="1" Classes="td" Text="Already dictionary-encoded, run-length encoded and bit-packed. Backups typically shrink only a little further." Margin="0,5" TextWrapping="Wrap"/>
+
+                            <TextBlock Grid.Row="5" Grid.Column="0" Classes="td" Text="TDE" Margin="0,5,16,5" TextWrapping="Wrap"/>
+                            <TextBlock Grid.Row="5" Grid.Column="1" Classes="td" Text="From 2016 on, SQL Server decrypts, compresses, then re-encrypts, but only when MAXTRANSFERSIZE &gt; 65536. Otherwise the pages are ciphertext and don't compress." Margin="0,5" TextWrapping="Wrap"/>
+                        </Grid>
+                    </Border>
+                </StackPanel>
+
+                <!-- What that means for choosing an algorithm -->
+                <StackPanel Spacing="6">
+                    <TextBlock Classes="h2" Text="What that means for choosing an algorithm"/>
+
+                    <Border Classes="card">
+                        <StackPanel Spacing="4">
+                            <TextBlock Classes="h3" Text="Rowstore-heavy, text- and Unicode-heavy databases (typical OLTP or ERP)"/>
+                            <TextBlock Classes="bullet" Text="• Every algorithm gets a good ratio here. XPRESS already catches the zeros and padding."/>
+                            <TextBlock Classes="bullet" Text="• ZSTD and DEFLATE gain extra on text, because their entropy coding makes use of uneven byte distributions: some bytes appear much more often than others."/>
+                            <TextBlock Classes="bullet" Text="• Use ZSTD LOW as the default. Try MEDIUM/HIGH if storage costs money: backup to URL, long retention, or copies shipped offsite."/>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Classes="card">
+                        <StackPanel Spacing="4">
+                            <TextBlock Classes="h3" Text="Mixed numeric and rowstore data without storage compression"/>
+                            <TextBlock Classes="bullet" Text="• ZSTD LOW is usually the best balance. The higher levels add CPU without saving much more."/>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Classes="card">
+                        <StackPanel Spacing="4">
+                            <TextBlock Classes="h3" Text="Databases already using PAGE compression or columnstore (data warehouses)"/>
+                            <TextBlock Classes="bullet" Text="• Any algorithm does modestly. Prefer the cheap option (XPRESS or ZSTD LOW), because HIGH mostly burns CPU."/>
+                            <TextBlock Classes="bullet" Text="• If CPU is tight during the backup window and the server has the hardware, QAT hardware mode makes sense here: the savings are small, so at least they shouldn't cost CPU."/>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Classes="card">
+                        <StackPanel Spacing="4">
+                            <TextBlock Classes="h3" Text="Blob stores, document databases and encrypted data"/>
+                            <TextBlock Classes="bullet" Text="• The algorithm barely matters, because the bytes are effectively random."/>
+                            <TextBlock Classes="bullet" Text="• Use the cheapest setting, and test NO_COMPRESSION as well. That matters especially if the backups go to a dedupe appliance, where compression can make deduplication worse."/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <TextBlock Classes="body"><Run Classes="label" Text="What drives the overall ratio: "/><Run Text="A backup's ratio is a size-weighted average, so your largest tables decide it. A 2 GB lookup schema with great ratios won't help if 300 GB of the database is a table of PDFs."/></TextBlock>
+
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
+</Window>

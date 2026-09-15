@@ -1,12 +1,23 @@
 using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using SqlBackupBenchmark.Models;
+using SqlBackupBenchmark.Services;
 
 namespace SqlBackupBenchmark.ViewModels;
 
 public partial class BackupScenarioItemViewModel : ViewModelBase
 {
     public BackupScenario Scenario { get; }
+
+    public bool IsQatUnsupported => Scenario.Algorithm == "QAT_DEFLATE" && !CpuInfo.IsIntel;
+
+    public string? QatUnsupportedTooltip => IsQatUnsupported
+        ? $"Requires an Intel CPU (Intel QuickAssist Technology) — this system reports {CpuInfo.VendorName}."
+        : null;
+
+    public string? QatUnsupportedMessage => IsQatUnsupported ? "Only Intel CPU" : null;
+
+    public string? DisplayMessage => IsQatUnsupported ? QatUnsupportedMessage : ErrorMessage;
 
     [ObservableProperty] private bool _isChecked = true;
     [ObservableProperty] private BackupResultStatus _status = BackupResultStatus.Pending;
@@ -17,6 +28,7 @@ public partial class BackupScenarioItemViewModel : ViewModelBase
     [ObservableProperty] private string _lastSql = "";
     [ObservableProperty] private string _fileSizeRatioText = "";
     [ObservableProperty] private string _durationRatioText = "";
+    [ObservableProperty] private string _compressionRatioText = "-";
 
     // Raw values used by MainWindowViewModel.ComputeRatios()
     public double FileSizeMbValue  { get; private set; }
@@ -25,7 +37,10 @@ public partial class BackupScenarioItemViewModel : ViewModelBase
     public BackupScenarioItemViewModel(BackupScenario scenario)
     {
         Scenario = scenario;
+        if (IsQatUnsupported) IsChecked = false;
     }
+
+    partial void OnErrorMessageChanged(string? value) => OnPropertyChanged(nameof(DisplayMessage));
 
     public string StatusText => Status switch
     {
@@ -44,7 +59,7 @@ public partial class BackupScenarioItemViewModel : ViewModelBase
         _                           => new SolidColorBrush(Color.Parse("#888888"))
     };
 
-    public void ApplyResult(BackupResult result)
+    public void ApplyResult(BackupResult result, double databaseSizeMb = 0)
     {
         Status          = result.Status;
         FileSizeMbValue = result.FileSizeMB;
@@ -57,6 +72,10 @@ public partial class BackupScenarioItemViewModel : ViewModelBase
         FileSizeMbText = result.FileSizeMB > 0 ? $"{result.FileSizeMB:N1}" : "-";
         MbPerSecText   = result.MbPerSec   > 0 ? $"{result.MbPerSec:N1}"   : "-";
         ErrorMessage   = result.ErrorMessage;
+
+        CompressionRatioText = result.FileSizeMB > 0 && databaseSizeMb > 0
+            ? $"{(1 - result.FileSizeMB / databaseSizeMb) * 100:N0}%"
+            : "-";
 
         OnPropertyChanged(nameof(StatusText));
         OnPropertyChanged(nameof(StatusColor));
@@ -85,7 +104,7 @@ public partial class BackupScenarioItemViewModel : ViewModelBase
     public void SetRunning()
     {
         Status            = BackupResultStatus.Running;
-        DurationText      = FileSizeMbText = MbPerSecText = "-";
+        DurationText      = FileSizeMbText = MbPerSecText = CompressionRatioText = "-";
         FileSizeRatioText = DurationRatioText = "";
         ErrorMessage      = null;
         LastSql           = "";
@@ -98,7 +117,7 @@ public partial class BackupScenarioItemViewModel : ViewModelBase
     public void Reset()
     {
         Status            = BackupResultStatus.Pending;
-        DurationText      = FileSizeMbText = MbPerSecText = "-";
+        DurationText      = FileSizeMbText = MbPerSecText = CompressionRatioText = "-";
         FileSizeRatioText = DurationRatioText = "";
         ErrorMessage      = null;
         LastSql           = "";

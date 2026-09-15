@@ -27,6 +27,9 @@ public partial class MainWindow : Window
     private async void OnAboutClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
         => await new AboutWindow().ShowDialog(this);
 
+    private async void OnInfoClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+        => await new InfoWindow().ShowDialog(this);
+
     private async void OnConnectionClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         if (DataContext is not MainWindowViewModel vm) return;
