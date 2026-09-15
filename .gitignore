@@ -1,6 +1,9 @@
 # Build artifacts
 bin/
 obj/
+publish/
+release-stage/
+*.zip
 
 # Runtime logs
 logs/
