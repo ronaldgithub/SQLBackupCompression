@@ -41,6 +41,16 @@ public partial class MainWindow : Window
             await vm.ApplyConnectionSettingsAsync(dialogVm.ToSettings());
     }
 
+    private async void OnAnalyzeClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel vm || vm.SelectedDatabase is null) return;
+
+        var databaseName = vm.SelectedDatabase.Name;
+        var ok = await vm.RunTableAnalysisAsync();
+        if (ok)
+            await new AnalysisWindow(new AnalysisWindowViewModel(databaseName, vm.AnalysisResults)).ShowDialog(this);
+    }
+
     private async System.Threading.Tasks.Task<string?> PickFolderAsync(string title)
     {
         var result = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions

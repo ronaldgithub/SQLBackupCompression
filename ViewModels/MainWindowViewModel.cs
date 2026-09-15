@@ -17,6 +17,7 @@ public partial class MainWindowViewModel : ViewModelBase
     public ConnectionSettings ConnectionSettings { get; } = new();
 
     private readonly SqlBackupService _service;
+    private readonly SqlAnalysisService _analysisService;
 
     public RestoreTabViewModel RestoreTab { get; }
 
@@ -29,6 +30,7 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty] private bool _isRunning;
     [ObservableProperty] private bool _isParallelRun;
     [ObservableProperty] private BackupScenarioItemViewModel? _selectedScenario;
+    [ObservableProperty] private ObservableCollection<TableAnalysisRow> _analysisResults = [];
 
     public string CpuVendor => CpuInfo.VendorName;
 
@@ -47,6 +49,7 @@ public partial class MainWindowViewModel : ViewModelBase
     public MainWindowViewModel()
     {
         _service = new SqlBackupService(ConnectionSettings);
+        _analysisService = new SqlAnalysisService(ConnectionSettings);
         RestoreTab = new RestoreTabViewModel(ConnectionSettings);
         ConnectionSummary = ConnectionSettings.Summary;
 
@@ -192,6 +195,25 @@ public partial class MainWindowViewModel : ViewModelBase
     private async Task Reload() => await LoadDatabasesAsync();
 
     public void SetBackupPathFromDialog(string path) => BackupPath = path;
+
+    public async Task<bool> RunTableAnalysisAsync()
+    {
+        if (SelectedDatabase is null) return false;
+        var db = SelectedDatabase.Name;
+        StatusMessage = $"Analysing {db}...";
+        try
+        {
+            var rows = await _analysisService.GetTableAnalysisAsync(db);
+            AnalysisResults = new ObservableCollection<TableAnalysisRow>(rows);
+            StatusMessage = $"Analysis complete — {rows.Count} table(s) in {db}.";
+            return true;
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Analysis failed: {ex.Message}";
+            return false;
+        }
+    }
 
     public async Task ApplyConnectionSettingsAsync(ConnectionSettings newSettings)
     {

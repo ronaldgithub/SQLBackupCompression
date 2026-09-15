@@ -1,0 +1,154 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:SqlBackupBenchmark.ViewModels"
+        xmlns:models="using:SqlBackupBenchmark.Models"
+        x:Class="SqlBackupBenchmark.Views.AnalysisWindow"
+        x:DataType="vm:AnalysisWindowViewModel"
+        Title="Table Analysis"
+        Icon="/Assets/icon.ico"
+        Width="920" Height="620"
+        MinWidth="700" MinHeight="360"
+        WindowStartupLocation="CenterOwner"
+        Background="#1E1E1E">
+
+    <Window.Styles>
+        <Style Selector="TextBlock.lbl">
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="Foreground" Value="#888888"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style Selector="Border.card">
+            <Setter Property="Background" Value="#252526"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="12"/>
+        </Style>
+        <Style Selector="Button.sec">
+            <Setter Property="Background" Value="#3C3C3C"/>
+            <Setter Property="Foreground" Value="#CCCCCC"/>
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.sec:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#505050"/>
+        </Style>
+    </Window.Styles>
+
+    <DockPanel Margin="16">
+
+        <StackPanel DockPanel.Dock="Top" Spacing="2" Margin="0,0,0,10">
+            <TextBlock Text="Table Analysis" FontSize="18" FontWeight="Bold" Foreground="#CCCCCC"/>
+            <TextBlock Text="{Binding Subtitle}" FontSize="12" Foreground="#888888"/>
+        </StackPanel>
+
+        <Button DockPanel.Dock="Bottom" Classes="sec" Content="Close" Click="OnCloseClick"
+                HorizontalAlignment="Right" Margin="0,10,0,0"/>
+
+        <Border Classes="card">
+            <DockPanel>
+                <!-- Column headers -->
+                <Grid DockPanel.Dock="Top"
+                      ColumnDefinitions="*,12,90,12,120,12,55,12,55,12,70,12,60,12,55"
+                      Margin="2,0,2,6">
+                    <TextBlock Grid.Column="0"  Classes="lbl" Text="TABLE"/>
+                    <TextBlock Grid.Column="2"  Classes="lbl" Text="SIZE" TextAlignment="Right"/>
+                    <TextBlock Grid.Column="4"  Classes="lbl" Text="COMPRESSION"/>
+                    <TextBlock Grid.Column="6"  Classes="lbl" Text="LOB" TextAlignment="Right"
+                               ToolTip.Tip="Columns stored as LOBs: varchar(max)/nvarchar(max)/varbinary(max), text/ntext/image, xml"/>
+                    <TextBlock Grid.Column="8"  Classes="lbl" Text="GUID" TextAlignment="Right"
+                               ToolTip.Tip="uniqueidentifier columns — near-random bytes, compress poorly"/>
+                    <TextBlock Grid.Column="10" Classes="lbl" Text="UNICODE" TextAlignment="Right"
+                               ToolTip.Tip="nchar/nvarchar/ntext columns — UTF-16 zero bytes compress well"/>
+                    <TextBlock Grid.Column="12" Classes="lbl" Text="FIXED" TextAlignment="Right"
+                               ToolTip.Tip="char/nchar/binary fixed-width columns — padding compresses well"/>
+                    <TextBlock Grid.Column="14" Classes="lbl" Text="FLOAT" TextAlignment="Right"
+                               ToolTip.Tip="float/real columns — noisy mantissa bits compress poorly"/>
+                </Grid>
+
+                <Rectangle DockPanel.Dock="Top" Height="1" Fill="#3C3C3C" Margin="0,0,0,4"/>
+
+                <Border DockPanel.Dock="Top" Background="#2D2D30" CornerRadius="4"
+                        Padding="8,6" Margin="0,0,0,6"
+                        IsVisible="{Binding HasRows}">
+                    <Grid ColumnDefinitions="*,12,90,12,120,12,55,12,55,12,70,12,60,12,55">
+                        <TextBlock Grid.Column="0"
+                                   Text="TOTAL" FontWeight="Bold"
+                                   FontSize="12" Foreground="#DCDCAA"/>
+                        <TextBlock Grid.Column="2"
+                                   Text="{Binding TotalSizeText}" FontWeight="Bold"
+                                   FontSize="12" Foreground="#9CDCFE"
+                                   TextAlignment="Right"/>
+                        <TextBlock Grid.Column="4"
+                                   Text="—" FontSize="12" Foreground="#666666"/>
+                        <TextBlock Grid.Column="6"
+                                   Text="{Binding TotalLobCols}" FontWeight="Bold"
+                                   FontSize="12" Foreground="#DCDCAA"
+                                   TextAlignment="Right"/>
+                        <TextBlock Grid.Column="8"
+                                   Text="{Binding TotalGuidCols}" FontWeight="Bold"
+                                   FontSize="12" Foreground="#DCDCAA"
+                                   TextAlignment="Right"/>
+                        <TextBlock Grid.Column="10"
+                                   Text="{Binding TotalUnicodeCols}" FontWeight="Bold"
+                                   FontSize="12" Foreground="#DCDCAA"
+                                   TextAlignment="Right"/>
+                        <TextBlock Grid.Column="12"
+                                   Text="{Binding TotalFixedWidthCols}" FontWeight="Bold"
+                                   FontSize="12" Foreground="#DCDCAA"
+                                   TextAlignment="Right"/>
+                        <TextBlock Grid.Column="14"
+                                   Text="{Binding TotalFloatCols}" FontWeight="Bold"
+                                   FontSize="12" Foreground="#DCDCAA"
+                                   TextAlignment="Right"/>
+                    </Grid>
+                </Border>
+
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding Rows}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="models:TableAnalysisRow">
+                                <Grid ColumnDefinitions="*,12,90,12,120,12,55,12,55,12,70,12,60,12,55"
+                                      Margin="2,3">
+                                    <TextBlock Grid.Column="0"
+                                               Text="{Binding TableName}"
+                                               FontFamily="Cascadia Code,Consolas,monospace"
+                                               FontSize="12" Foreground="#CCCCCC"
+                                               TextTrimming="CharacterEllipsis"
+                                               ToolTip.Tip="{Binding TableName}"/>
+                                    <TextBlock Grid.Column="2"
+                                               Text="{Binding ReservedMbText}"
+                                               FontSize="12" Foreground="#9CDCFE"
+                                               TextAlignment="Right"/>
+                                    <TextBlock Grid.Column="4"
+                                               Text="{Binding CompressionText}"
+                                               FontSize="12" Foreground="#CCCCCC"
+                                               TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Grid.Column="6"
+                                               Text="{Binding LobCols}"
+                                               FontSize="12" Foreground="#CCCCCC"
+                                               TextAlignment="Right"/>
+                                    <TextBlock Grid.Column="8"
+                                               Text="{Binding GuidCols}"
+                                               FontSize="12" Foreground="#CCCCCC"
+                                               TextAlignment="Right"/>
+                                    <TextBlock Grid.Column="10"
+                                               Text="{Binding UnicodeCols}"
+                                               FontSize="12" Foreground="#CCCCCC"
+                                               TextAlignment="Right"/>
+                                    <TextBlock Grid.Column="12"
+                                               Text="{Binding FixedWidthCols}"
+                                               FontSize="12" Foreground="#CCCCCC"
+                                               TextAlignment="Right"/>
+                                    <TextBlock Grid.Column="14"
+                                               Text="{Binding FloatCols}"
+                                               FontSize="12" Foreground="#CCCCCC"
+                                               TextAlignment="Right"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+    </DockPanel>
+</Window>

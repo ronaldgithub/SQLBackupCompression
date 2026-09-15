@@ -2,6 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:SqlBackupBenchmark.ViewModels"
         xmlns:models="using:SqlBackupBenchmark.Models"
+        xmlns:converters="using:Avalonia.Data.Converters"
         x:Class="SqlBackupBenchmark.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Title="SQL Server 2025 Backup Benchmark"
@@ -95,11 +96,11 @@
 
                     <!-- Config: database + path -->
                     <Border DockPanel.Dock="Top" Classes="card" Margin="0,0,0,8">
-                        <Grid ColumnDefinitions="Auto,12,220,24,Auto,24,*,8,Auto" RowDefinitions="Auto,6,Auto">
+                        <Grid ColumnDefinitions="Auto,12,220,8,Auto,24,Auto,24,*,8,Auto" RowDefinitions="Auto,6,Auto">
                             <TextBlock Grid.Row="0" Grid.Column="0" Classes="lbl" Text="SERVER"/>
                             <TextBlock Grid.Row="0" Grid.Column="2" Classes="lbl" Text="DATABASE"/>
-                            <TextBlock Grid.Row="0" Grid.Column="4" Classes="lbl" Text="CPU"/>
-                            <TextBlock Grid.Row="0" Grid.Column="6" Grid.ColumnSpan="3" Classes="lbl" Text="BACKUP PATH"/>
+                            <TextBlock Grid.Row="0" Grid.Column="6" Classes="lbl" Text="CPU"/>
+                            <TextBlock Grid.Row="0" Grid.Column="8" Grid.ColumnSpan="3" Classes="lbl" Text="BACKUP PATH"/>
 
                             <TextBlock Grid.Row="2" Grid.Column="0"
                                        Text="{Binding ConnectionSummary}"
@@ -124,15 +125,20 @@
                                     </DataTemplate>
                                 </ComboBox.ItemTemplate>
                             </ComboBox>
-                            <TextBlock Grid.Row="2" Grid.Column="4"
+                            <Button Grid.Row="2" Grid.Column="4"
+                                    Classes="sec" Content="Analyse"
+                                    Click="OnAnalyzeClick"
+                                    IsEnabled="{Binding SelectedDatabase, Converter={x:Static converters:ObjectConverters.IsNotNull}}"
+                                    ToolTip.Tip="Run a table-level compression readiness report (size, storage compression, and column types that help or hurt backup compression)"/>
+                            <TextBlock Grid.Row="2" Grid.Column="6"
                                        Text="{Binding CpuVendor}"
                                        Foreground="#888888" FontSize="12"
                                        VerticalAlignment="Center"
                                        ToolTip.Tip="Detected from PROCESSOR_IDENTIFIER — QAT_DEFLATE scenarios need an Intel CPU"/>
-                            <TextBox Grid.Row="2" Grid.Column="6"
+                            <TextBox Grid.Row="2" Grid.Column="8"
                                      Text="{Binding BackupPath}"
                                      Watermark="D:\backups"/>
-                            <Button Grid.Row="2" Grid.Column="8"
+                            <Button Grid.Row="2" Grid.Column="10"
                                     Classes="sec" Content="Browse…"
                                     Click="OnBrowseClick"/>
                         </Grid>
