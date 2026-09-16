@@ -1,9 +1,11 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using SqlBackupBenchmark.Models;
@@ -13,23 +15,35 @@ namespace SqlBackupBenchmark.ViewModels;
 
 public partial class RestoreTabViewModel : ViewModelBase
 {
+    private const double DiskSpaceWarningPercent = 20;
+
     private readonly SqlRestoreService _service;
+    private readonly PerformanceSamplingService _perfSampler;
+    private readonly List<PerformanceSample> _restoreSamples = [];
 
     [ObservableProperty] private string _backupPath = @"D:\backups";
     [ObservableProperty] private ObservableCollection<string> _availableDatabases = [];
     [ObservableProperty] private string? _selectedDatabaseFilter;
     [ObservableProperty] private bool _overwriteExisting = true;
+    [ObservableProperty] private bool _deleteFilesAfterRestore = true;
+    [ObservableProperty] private bool _dropDatabaseAfterRestore = true;
     [ObservableProperty] private string _statusMessage = "Connecting...";
     [ObservableProperty] private bool _isRunning;
     [ObservableProperty] private string _totalDurationText = "-";
 
     public ObservableCollection<RestoreScenarioItemViewModel> Scenarios { get; } = [];
 
+    public IReadOnlyList<PerformanceSample> RestorePerformanceSamples => _restoreSamples;
+
     private CancellationTokenSource? _cts;
 
     public RestoreTabViewModel(ConnectionSettings connectionSettings)
     {
         _service = new SqlRestoreService(connectionSettings);
+        _perfSampler = new PerformanceSamplingService(connectionSettings);
+        _perfSampler.SampleReceived += s => _restoreSamples.Add(s);
+        _perfSampler.SamplingError += ex => Dispatcher.UIThread.Post(() =>
+            StatusMessage = $"[perf sampling] {ex.GetType().Name}: {ex.Message}");
 
         foreach (var s in BackupScenario.AllScenarios())
         {
@@ -122,38 +136,66 @@ public partial class RestoreTabViewModel : ViewModelBase
         _cts = new CancellationTokenSource();
         IsRunning = true;
         TotalDurationText = "-";
+        _restoreSamples.Clear();
         StatusMessage = $"Restoring {selected.Count} scenario(s) serially...";
 
+        await _perfSampler.StartAsync(database: null, _cts.Token);
         try
         {
-            var (dataPath, logPath) = await _service.GetDefaultPathsAsync(_cts.Token);
-
-            foreach (var vm in selected)
+            try
             {
-                if (_cts.Token.IsCancellationRequested) break;
+                var (dataPath, logPath) = await _service.GetDefaultPathsAsync(_cts.Token);
 
-                vm.SetRunning();
-                var group = vm.SelectedFile!;
-                var targetDb = group.RestoreDbName;
-                StatusMessage = $"[{vm.Scenario.Name}] → {targetDb}...";
+                if (DiskSpaceChecker.GetFreeSpacePercent(dataPath) < DiskSpaceWarningPercent)
+                {
+                    StatusMessage = $"Restore target path has less than {DiskSpaceWarningPercent:N0}% free disk space — run cancelled.";
+                    IsRunning = false;
+                    return;
+                }
 
-                var filePaths = group.FileNames.Select(f => Path.Combine(BackupPath, f)).ToList();
+                foreach (var vm in selected)
+                {
+                    if (_cts.Token.IsCancellationRequested) break;
 
-                var result = await _service.RunRestoreAsync(
-                    vm.Scenario, filePaths, targetDb, dataPath, logPath,
-                    overwrite: OverwriteExisting,
-                    ct: _cts.Token);
+                    if (DiskSpaceChecker.GetFreeSpacePercent(dataPath) < DiskSpaceWarningPercent)
+                    {
+                        StatusMessage = $"Stopped before [{vm.Scenario.Name}]: restore target path dropped below {DiskSpaceWarningPercent:N0}% free disk space.";
+                        break;
+                    }
 
-                vm.ApplyResult(result);
+                    vm.SetRunning(DateTime.Now);
+                    var group = vm.SelectedFile!;
+                    var targetDb = group.RestoreDbName;
+                    StatusMessage = $"[{vm.Scenario.Name}] → {targetDb}...";
+
+                    _perfSampler.SetDatabaseScope(targetDb);
+
+                    var filePaths = group.FileNames.Select(f => Path.Combine(BackupPath, f)).ToList();
+
+                    var result = await _service.RunRestoreAsync(
+                        vm.Scenario, filePaths, targetDb, dataPath, logPath,
+                        overwrite: OverwriteExisting,
+                        ct: _cts.Token);
+
+                    vm.ApplyResult(result, DateTime.Now);
+
+                    if (result.Status == BackupResultStatus.Done)
+                        await CleanUpAfterRestoreAsync(vm, targetDb, filePaths, _cts.Token);
+                }
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = $"Run failed: {ex.Message}";
+                IsRunning = false;
+                return;
             }
         }
-        catch (Exception ex)
+        finally
         {
-            StatusMessage = $"Run failed: {ex.Message}";
-            IsRunning = false;
-            return;
+            await _perfSampler.StopAsync();
         }
 
+        ScanForFiles();
         ComputeRatios();
 
         var done  = selected.Count(s => s.Status == BackupResultStatus.Done);
@@ -161,6 +203,37 @@ public partial class RestoreTabViewModel : ViewModelBase
         TotalDurationText = FormatDuration(TimeSpan.FromSeconds(selected.Sum(s => s.DurationSeconds)));
         StatusMessage = $"Completed: {done} succeeded, {error} failed.";
         IsRunning = false;
+    }
+
+    private async Task CleanUpAfterRestoreAsync(
+        RestoreScenarioItemViewModel vm, string targetDb, List<string> filePaths, CancellationToken ct)
+    {
+        if (DropDatabaseAfterRestore)
+        {
+            try
+            {
+                await _service.DropDatabaseAsync(targetDb, ct);
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = $"[{vm.Scenario.Name}] cleanup: could not drop {targetDb}: {ex.Message}";
+            }
+        }
+
+        if (DeleteFilesAfterRestore)
+        {
+            foreach (var path in filePaths)
+            {
+                try
+                {
+                    if (File.Exists(path)) File.Delete(path);
+                }
+                catch (Exception ex)
+                {
+                    StatusMessage = $"[{vm.Scenario.Name}] cleanup: could not delete {Path.GetFileName(path)}: {ex.Message}";
+                }
+            }
+        }
     }
 
     private static string FormatDuration(TimeSpan ts) =>

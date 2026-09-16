@@ -1,3 +1,4 @@
+using System;
 using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using SqlBackupBenchmark.Models;
@@ -34,6 +35,10 @@ public partial class BackupScenarioItemViewModel : ViewModelBase
     public double FileSizeMbValue  { get; private set; }
     public double DurationSeconds  { get; private set; }
 
+    // Wall-clock timestamps, used only for feedback-report correlation with performance samples.
+    public DateTime? StartedAt  { get; private set; }
+    public DateTime? FinishedAt { get; private set; }
+
     public BackupScenarioItemViewModel(BackupScenario scenario)
     {
         Scenario = scenario;
@@ -59,12 +64,13 @@ public partial class BackupScenarioItemViewModel : ViewModelBase
         _                           => new SolidColorBrush(Color.Parse("#888888"))
     };
 
-    public void ApplyResult(BackupResult result, double databaseSizeMb = 0)
+    public void ApplyResult(BackupResult result, double databaseSizeMb = 0, DateTime? finishedAt = null)
     {
         Status          = result.Status;
         FileSizeMbValue = result.FileSizeMB;
         DurationSeconds = result.Duration.TotalSeconds;
         LastSql         = result.SqlStatement;
+        FinishedAt      = finishedAt;
 
         DurationText = result.Duration.TotalSeconds > 0
             ? $"{(int)result.Duration.TotalMinutes:D2}:{result.Duration.Seconds:D2}.{result.Duration.Milliseconds / 100}"
@@ -101,7 +107,7 @@ public partial class BackupScenarioItemViewModel : ViewModelBase
         OnPropertyChanged(nameof(DurationRatioColor));
     }
 
-    public void SetRunning()
+    public void SetRunning(DateTime? startedAt = null)
     {
         Status            = BackupResultStatus.Running;
         DurationText      = FileSizeMbText = MbPerSecText = CompressionRatioText = "-";
@@ -110,6 +116,8 @@ public partial class BackupScenarioItemViewModel : ViewModelBase
         LastSql           = "";
         FileSizeMbValue   = 0;
         DurationSeconds   = 0;
+        StartedAt         = startedAt;
+        FinishedAt        = null;
         OnPropertyChanged(nameof(StatusText));
         OnPropertyChanged(nameof(StatusColor));
     }

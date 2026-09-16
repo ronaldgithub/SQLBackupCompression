@@ -464,6 +464,18 @@
                                   Foreground="#CCCCCC" FontSize="12"
                                   Margin="12,0,0,0" VerticalAlignment="Center"/>
 
+                        <CheckBox DockPanel.Dock="Left"
+                                  IsChecked="{Binding RestoreTab.DeleteFilesAfterRestore}"
+                                  Content="Delete backup file(s) after restore"
+                                  Foreground="#CCCCCC" FontSize="12"
+                                  Margin="12,0,0,0" VerticalAlignment="Center"/>
+
+                        <CheckBox DockPanel.Dock="Left"
+                                  IsChecked="{Binding RestoreTab.DropDatabaseAfterRestore}"
+                                  Content="Drop restored database"
+                                  Foreground="#CCCCCC" FontSize="12"
+                                  Margin="12,0,0,0" VerticalAlignment="Center"/>
+
                         <TextBlock DockPanel.Dock="Left"
                                    Text="{Binding RestoreTab.StatusMessage}"
                                    FontSize="12" Foreground="#888888"

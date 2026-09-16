@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Threading;
@@ -15,12 +16,19 @@ namespace SqlBackupBenchmark.ViewModels;
 
 public partial class MainWindowViewModel : ViewModelBase
 {
+    private const double DiskSpaceWarningPercent = 20;
+    private const string AnalyseOutputFolder = @"C:\github\SQLBackupCompression\Analyse";
+
     public ConnectionSettings ConnectionSettings { get; } = new();
 
     private readonly SqlBackupService _service;
     private readonly SqlAnalysisService _analysisService;
+    private readonly PerformanceSamplingService _perfSampler;
+    private readonly List<PerformanceSample> _backupSamples = [];
 
     public RestoreTabViewModel RestoreTab { get; }
+
+    public IReadOnlyList<PerformanceSample> BackupPerformanceSamples => _backupSamples;
 
     [ObservableProperty] private ObservableCollection<DatabaseInfo> _availableDatabases = [];
     [ObservableProperty] private DatabaseInfo? _selectedDatabase;
@@ -63,6 +71,10 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         _service = new SqlBackupService(ConnectionSettings);
         _analysisService = new SqlAnalysisService(ConnectionSettings);
+        _perfSampler = new PerformanceSamplingService(ConnectionSettings);
+        _perfSampler.SampleReceived += s => _backupSamples.Add(s);
+        _perfSampler.SamplingError += ex => Dispatcher.UIThread.Post(() =>
+            StatusMessage = $"[perf sampling] {ex.GetType().Name}: {ex.Message}");
         RestoreTab = new RestoreTabViewModel(ConnectionSettings);
         ConnectionSummary = ConnectionSettings.Summary;
 
@@ -151,31 +163,53 @@ public partial class MainWindowViewModel : ViewModelBase
             return;
         }
 
+        if (DiskSpaceChecker.GetFreeSpacePercent(BackupPath) < DiskSpaceWarningPercent)
+        {
+            StatusMessage = $"Backup path has less than {DiskSpaceWarningPercent:N0}% free disk space — run cancelled.";
+            return;
+        }
+
         _cts = new CancellationTokenSource();
         IsRunning = true;
         TotalDurationText = "-";
+        _backupSamples.Clear();
         var mode = IsParallelRun ? "parallel" : "serial";
         StatusMessage = $"Running {selected.Count} scenario(s) {mode}...";
 
         var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
 
-        if (IsParallelRun)
+        await _perfSampler.StartAsync(db, _cts.Token);
+        try
         {
-            foreach (var s in selected) s.SetRunning();
-            var tasks = selected.Select(vm => RunScenarioAsync(vm, db, databaseSizeMb, timestamp, _cts.Token));
-            await Task.WhenAll(tasks);
-        }
-        else
-        {
-            foreach (var vm in selected)
+            if (IsParallelRun)
             {
-                if (_cts.Token.IsCancellationRequested) break;
-                vm.SetRunning();
-                StatusMessage = $"[{vm.Scenario.Name}] running...";
-                var result = await _service.RunBackupAsync(vm.Scenario, database: db, backupPath: BackupPath,
-                    timestamp: timestamp, stripeCount: StripeCount, ct: _cts.Token);
-                vm.ApplyResult(result, databaseSizeMb);
+                foreach (var s in selected) s.SetRunning(DateTime.Now);
+                var tasks = selected.Select(vm => RunScenarioAsync(vm, db, databaseSizeMb, timestamp, _cts.Token));
+                await Task.WhenAll(tasks);
             }
+            else
+            {
+                foreach (var vm in selected)
+                {
+                    if (_cts.Token.IsCancellationRequested) break;
+
+                    if (DiskSpaceChecker.GetFreeSpacePercent(BackupPath) < DiskSpaceWarningPercent)
+                    {
+                        StatusMessage = $"Stopped before [{vm.Scenario.Name}]: backup path dropped below {DiskSpaceWarningPercent:N0}% free disk space.";
+                        break;
+                    }
+
+                    vm.SetRunning(DateTime.Now);
+                    StatusMessage = $"[{vm.Scenario.Name}] running...";
+                    var result = await _service.RunBackupAsync(vm.Scenario, database: db, backupPath: BackupPath,
+                        timestamp: timestamp, stripeCount: StripeCount, ct: _cts.Token);
+                    vm.ApplyResult(result, databaseSizeMb, DateTime.Now);
+                }
+            }
+        }
+        finally
+        {
+            await _perfSampler.StopAsync();
         }
 
         ComputeRatios();
@@ -211,7 +245,8 @@ public partial class MainWindowViewModel : ViewModelBase
         CancellationToken ct)
     {
         var result = await _service.RunBackupAsync(vm.Scenario, database, BackupPath, timestamp, StripeCount, ct: ct);
-        Dispatcher.UIThread.Post(() => vm.ApplyResult(result, databaseSizeMb));
+        var finishedAt = DateTime.Now;
+        Dispatcher.UIThread.Post(() => vm.ApplyResult(result, databaseSizeMb, finishedAt));
     }
 
     [RelayCommand]
@@ -246,11 +281,16 @@ public partial class MainWindowViewModel : ViewModelBase
         await RestoreTab.RefreshConnectionAsync();
     }
 
+    private static readonly int[] FeedbackStripeCounts = [1, 2, 4, 8];
+
     /// <summary>
     /// Runs every backup scenario, then every restore scenario against the files just
-    /// created, and writes a full text report of both runs. Restores the user's prior
-    /// checkbox selections and restore-tab filter/path on the way out. Returns the saved
-    /// report's full path, or null if it couldn't run or the write failed.
+    /// created, serially, once per stripe count in <see cref="FeedbackStripeCounts"/>
+    /// (Off/2x/4x/8x) — this is the only way to get complete striping data for a database
+    /// without four manual runs — and writes a full text report combining all of them.
+    /// Restores the user's prior checkbox selections, restore-tab filter/path, stripe
+    /// count, and Serial/Parallel setting on the way out. Returns the saved report's full
+    /// path, or null if it couldn't run or the write failed.
     /// </summary>
     public async Task<string?> RunFeedbackReportAsync()
     {
@@ -263,31 +303,51 @@ public partial class MainWindowViewModel : ViewModelBase
         var restoreChecked = RestoreTab.Scenarios.ToDictionary(s => s, s => s.IsChecked);
         var priorRestorePath = RestoreTab.BackupPath;
         var priorRestoreFilter = RestoreTab.SelectedDatabaseFilter;
+        var priorStripeCount = StripeCount;
+        var priorIsParallelRun = IsParallelRun;
 
         try
         {
             var timestamp = DateTime.Now;
 
-            StatusMessage = "Ask for Feedback: running all backup scenarios...";
-            SelectAllCommand.Execute(null);
-            await RunCommand.ExecuteAsync(null);
+            StatusMessage = "Ask for Feedback: analysing table metadata...";
+            var analysisOk = await RunTableAnalysisAsync();
+            var tableAnalysis = analysisOk ? AnalysisResults.ToList() : new List<TableAnalysisRow>();
 
-            RestoreTab.StatusMessage = "Ask for Feedback: scanning for new backup files...";
-            RestoreTab.BackupPath = BackupPath;
-            RestoreTab.SelectedDatabaseFilter = db.Name;
-            RestoreTab.RescanFiles();
+            IsParallelRun = false;
 
-            RestoreTab.StatusMessage = "Ask for Feedback: running all restore scenarios...";
-            RestoreTab.SelectAllCommand.Execute(null);
-            await RestoreTab.RunCommand.ExecuteAsync(null);
+            var body = new StringBuilder();
+            foreach (var stripeCount in FeedbackStripeCounts)
+            {
+                StripeCount = stripeCount;
 
-            var report = FeedbackReportService.Build(
-                timestamp, db.Name, db.SizeMB, BackupPath, StripeCount,
-                Scenarios.Select(ToReportRow).ToList(),
-                RestoreTab.Scenarios.Select(ToReportRow).ToList());
+                StatusMessage = $"Ask for Feedback: running all backup scenarios ({stripeCount}x stripe)...";
+                SelectAllCommand.Execute(null);
+                await RunCommand.ExecuteAsync(null);
 
+                RestoreTab.StatusMessage = $"Ask for Feedback: scanning for new backup files ({stripeCount}x stripe)...";
+                RestoreTab.BackupPath = BackupPath;
+                RestoreTab.SelectedDatabaseFilter = db.Name;
+                RestoreTab.RescanFiles();
+
+                RestoreTab.StatusMessage = $"Ask for Feedback: running all restore scenarios ({stripeCount}x stripe)...";
+                RestoreTab.SelectAllCommand.Execute(null);
+                await RestoreTab.RunCommand.ExecuteAsync(null);
+
+                body.Append(FeedbackReportService.BuildStripeSection(
+                    stripeCount,
+                    Scenarios.Select(ToReportRow).ToList(),
+                    RestoreTab.Scenarios.Select(ToReportRow).ToList(),
+                    BackupPerformanceSamples.ToList(),
+                    RestoreTab.RestorePerformanceSamples.ToList()));
+            }
+
+            var header = FeedbackReportService.BuildHeader(timestamp, db.Name, db.SizeMB, BackupPath, tableAnalysis);
+            var report = header + body;
+
+            Directory.CreateDirectory(AnalyseOutputFolder);
             var fileName = $"{db.Name}_FeedbackReport_{timestamp:yyyyMMdd_HHmmss}.txt";
-            var filePath = Path.Combine(BackupPath, fileName);
+            var filePath = Path.Combine(AnalyseOutputFolder, fileName);
             await File.WriteAllTextAsync(filePath, report);
 
             StatusMessage = $"Feedback report saved: {fileName}";
@@ -304,6 +364,8 @@ public partial class MainWindowViewModel : ViewModelBase
             foreach (var (s, wasChecked) in restoreChecked) s.IsChecked = wasChecked;
             RestoreTab.BackupPath = priorRestorePath;
             RestoreTab.SelectedDatabaseFilter = priorRestoreFilter;
+            StripeCount = priorStripeCount;
+            IsParallelRun = priorIsParallelRun;
             RestoreTab.RescanFiles();
             IsFeedbackRunning = false;
         }
@@ -311,9 +373,9 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private static ScenarioReportRow ToReportRow(BackupScenarioItemViewModel s) => new(
         s.Scenario.Name, s.StatusText, s.DurationText, s.FileSizeMbText, s.MbPerSecText,
-        s.CompressionRatioText, s.LastSql, s.ErrorMessage);
+        s.CompressionRatioText, s.LastSql, s.ErrorMessage, s.StartedAt, s.FinishedAt);
 
     private static ScenarioReportRow ToReportRow(RestoreScenarioItemViewModel s) => new(
         s.Scenario.Name, s.StatusText, s.DurationText, s.FileSizeMbText, s.MbPerSecText,
-        s.FileSizeRatioText, s.LastSql, s.ErrorMessage);
+        s.FileSizeRatioText, s.LastSql, s.ErrorMessage, s.StartedAt, s.FinishedAt);
 }

@@ -110,6 +110,19 @@ public class SqlRestoreService(ConnectionSettings connectionSettings)
         return result;
     }
 
+    /// <summary>Drops a restored scratch database, forcing out any lingering connections first
+    /// (this app's own restore connection has already closed by the time this is called, but
+    /// SINGLE_USER guards against anything else — SSMS, a stray tool — having it open).</summary>
+    public async Task DropDatabaseAsync(string database, CancellationToken ct = default)
+    {
+        await using var conn = new SqlConnection(ConnectionString);
+        await conn.OpenAsync(ct);
+        await using var cmd = new SqlCommand(
+            $"ALTER DATABASE [{database}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [{database}];",
+            conn) { CommandTimeout = 60 };
+        await cmd.ExecuteNonQueryAsync(ct);
+    }
+
     private static string BuildRestoreSql(
         string targetDatabase,
         IReadOnlyList<string> backupFilePaths,

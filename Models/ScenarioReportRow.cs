@@ -1,3 +1,5 @@
+using System;
+
 namespace SqlBackupBenchmark.Models;
 
 public record ScenarioReportRow(
@@ -8,4 +10,6 @@ public record ScenarioReportRow(
     string MbPerSec,
     string Ratio,
     string Sql,
-    string? Error);
+    string? Error,
+    DateTime? StartedAt,
+    DateTime? FinishedAt);

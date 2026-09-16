@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using Avalonia.Media;
@@ -26,6 +27,10 @@ public partial class RestoreScenarioItemViewModel : ViewModelBase
 
     public double FileSizeMbValue { get; private set; }
     public double DurationSeconds { get; private set; }
+
+    // Wall-clock timestamps, used only for feedback-report correlation with performance samples.
+    public DateTime? StartedAt  { get; private set; }
+    public DateTime? FinishedAt { get; private set; }
 
     public RestoreScenarioItemViewModel(BackupScenario scenario)
     {
@@ -67,12 +72,13 @@ public partial class RestoreScenarioItemViewModel : ViewModelBase
         ? new SolidColorBrush(Color.Parse("#CCCCCC"))
         : new SolidColorBrush(Color.Parse("#555555"));
 
-    public void ApplyResult(RestoreResult result)
+    public void ApplyResult(RestoreResult result, DateTime? finishedAt = null)
     {
         Status          = result.Status;
         FileSizeMbValue = result.FileSizeMB;
         DurationSeconds = result.Duration.TotalSeconds;
         LastSql         = result.SqlStatement;
+        FinishedAt      = finishedAt;
 
         DurationText = result.Duration.TotalSeconds > 0
             ? $"{(int)result.Duration.TotalMinutes:D2}:{result.Duration.Seconds:D2}.{result.Duration.Milliseconds / 100}"
@@ -105,7 +111,7 @@ public partial class RestoreScenarioItemViewModel : ViewModelBase
         OnPropertyChanged(nameof(DurationRatioColor));
     }
 
-    public void SetRunning()
+    public void SetRunning(DateTime? startedAt = null)
     {
         Status            = BackupResultStatus.Running;
         DurationText      = FileSizeMbText = MbPerSecText = "-";
@@ -114,6 +120,8 @@ public partial class RestoreScenarioItemViewModel : ViewModelBase
         LastSql           = "";
         FileSizeMbValue   = 0;
         DurationSeconds   = 0;
+        StartedAt         = startedAt;
+        FinishedAt        = null;
         OnPropertyChanged(nameof(StatusText));
         OnPropertyChanged(nameof(StatusColor));
     }
