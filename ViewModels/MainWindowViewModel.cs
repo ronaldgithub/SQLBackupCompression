@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -28,9 +29,15 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty] private string _connectionSummary = "";
     [ObservableProperty] private bool _isRunning;
     [ObservableProperty] private bool _isParallelRun;
+    [ObservableProperty] private int _stripeCount = 1;
+    [ObservableProperty] private bool _isFeedbackRunning;
+    [ObservableProperty] private string _totalDurationText = "-";
     [ObservableProperty] private ObservableCollection<TableAnalysisRow> _analysisResults = [];
 
     public string CpuVendor => CpuInfo.VendorName;
+
+    public bool CanAskForFeedback =>
+        !IsRunning && !RestoreTab.IsRunning && !IsFeedbackRunning && SelectedDatabase is not null;
 
     public bool IsSerialRun
     {
@@ -39,6 +46,14 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     public string RunButtonText => IsParallelRun ? "▶  Run in Parallel" : "▶  Run Serially";
+
+    // Radio-group options for StripeCount — each setter only reacts to being switched ON,
+    // since the RadioButton being switched OFF fires with value:false and the newly-selected
+    // one's setter is what actually changes StripeCount.
+    public bool IsStripe1 { get => StripeCount == 1; set { if (value) StripeCount = 1; } }
+    public bool IsStripe2 { get => StripeCount == 2; set { if (value) StripeCount = 2; } }
+    public bool IsStripe4 { get => StripeCount == 4; set { if (value) StripeCount = 4; } }
+    public bool IsStripe8 { get => StripeCount == 8; set { if (value) StripeCount = 8; } }
 
     public ObservableCollection<BackupScenarioItemViewModel> Scenarios { get; } = [];
 
@@ -51,6 +66,12 @@ public partial class MainWindowViewModel : ViewModelBase
         RestoreTab = new RestoreTabViewModel(ConnectionSettings);
         ConnectionSummary = ConnectionSettings.Summary;
 
+        RestoreTab.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(RestoreTabViewModel.IsRunning))
+                OnPropertyChanged(nameof(CanAskForFeedback));
+        };
+
         foreach (var s in BackupScenario.AllScenarios())
             Scenarios.Add(new BackupScenarioItemViewModel(s));
 
@@ -58,15 +79,32 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     partial void OnSelectedDatabaseChanged(DatabaseInfo? value)
-        => RunCommand.NotifyCanExecuteChanged();
+    {
+        RunCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(CanAskForFeedback));
+    }
 
     partial void OnIsRunningChanged(bool value)
-        => RunCommand.NotifyCanExecuteChanged();
+    {
+        RunCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(CanAskForFeedback));
+    }
+
+    partial void OnIsFeedbackRunningChanged(bool value)
+        => OnPropertyChanged(nameof(CanAskForFeedback));
 
     partial void OnIsParallelRunChanged(bool value)
     {
         OnPropertyChanged(nameof(IsSerialRun));
         OnPropertyChanged(nameof(RunButtonText));
+    }
+
+    partial void OnStripeCountChanged(int value)
+    {
+        OnPropertyChanged(nameof(IsStripe1));
+        OnPropertyChanged(nameof(IsStripe2));
+        OnPropertyChanged(nameof(IsStripe4));
+        OnPropertyChanged(nameof(IsStripe8));
     }
 
     private async Task LoadDatabasesAsync()
@@ -115,6 +153,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
         _cts = new CancellationTokenSource();
         IsRunning = true;
+        TotalDurationText = "-";
         var mode = IsParallelRun ? "parallel" : "serial";
         StatusMessage = $"Running {selected.Count} scenario(s) {mode}...";
 
@@ -134,7 +173,7 @@ public partial class MainWindowViewModel : ViewModelBase
                 vm.SetRunning();
                 StatusMessage = $"[{vm.Scenario.Name}] running...";
                 var result = await _service.RunBackupAsync(vm.Scenario, database: db, backupPath: BackupPath,
-                    timestamp: timestamp, ct: _cts.Token);
+                    timestamp: timestamp, stripeCount: StripeCount, ct: _cts.Token);
                 vm.ApplyResult(result, databaseSizeMb);
             }
         }
@@ -143,9 +182,15 @@ public partial class MainWindowViewModel : ViewModelBase
 
         var done  = selected.Count(s => s.Status == BackupResultStatus.Done);
         var error = selected.Count(s => s.Status == BackupResultStatus.Error);
+        TotalDurationText = FormatDuration(TimeSpan.FromSeconds(selected.Sum(s => s.DurationSeconds)));
         StatusMessage = $"Completed ({mode}): {done} succeeded, {error} failed.";
         IsRunning = false;
     }
+
+    private static string FormatDuration(TimeSpan ts) =>
+        ts.TotalSeconds > 0
+            ? $"{(int)ts.TotalMinutes:D2}:{ts.Seconds:D2}.{ts.Milliseconds / 100}"
+            : "-";
 
     private void ComputeRatios()
     {
@@ -165,7 +210,7 @@ public partial class MainWindowViewModel : ViewModelBase
         string timestamp,
         CancellationToken ct)
     {
-        var result = await _service.RunBackupAsync(vm.Scenario, database, BackupPath, timestamp, ct: ct);
+        var result = await _service.RunBackupAsync(vm.Scenario, database, BackupPath, timestamp, StripeCount, ct: ct);
         Dispatcher.UIThread.Post(() => vm.ApplyResult(result, databaseSizeMb));
     }
 
@@ -200,4 +245,75 @@ public partial class MainWindowViewModel : ViewModelBase
         await LoadDatabasesAsync();
         await RestoreTab.RefreshConnectionAsync();
     }
+
+    /// <summary>
+    /// Runs every backup scenario, then every restore scenario against the files just
+    /// created, and writes a full text report of both runs. Restores the user's prior
+    /// checkbox selections and restore-tab filter/path on the way out. Returns the saved
+    /// report's full path, or null if it couldn't run or the write failed.
+    /// </summary>
+    public async Task<string?> RunFeedbackReportAsync()
+    {
+        if (!CanAskForFeedback || SelectedDatabase is null) return null;
+        var db = SelectedDatabase;
+
+        IsFeedbackRunning = true;
+
+        var backupChecked = Scenarios.ToDictionary(s => s, s => s.IsChecked);
+        var restoreChecked = RestoreTab.Scenarios.ToDictionary(s => s, s => s.IsChecked);
+        var priorRestorePath = RestoreTab.BackupPath;
+        var priorRestoreFilter = RestoreTab.SelectedDatabaseFilter;
+
+        try
+        {
+            var timestamp = DateTime.Now;
+
+            StatusMessage = "Ask for Feedback: running all backup scenarios...";
+            SelectAllCommand.Execute(null);
+            await RunCommand.ExecuteAsync(null);
+
+            RestoreTab.StatusMessage = "Ask for Feedback: scanning for new backup files...";
+            RestoreTab.BackupPath = BackupPath;
+            RestoreTab.SelectedDatabaseFilter = db.Name;
+            RestoreTab.RescanFiles();
+
+            RestoreTab.StatusMessage = "Ask for Feedback: running all restore scenarios...";
+            RestoreTab.SelectAllCommand.Execute(null);
+            await RestoreTab.RunCommand.ExecuteAsync(null);
+
+            var report = FeedbackReportService.Build(
+                timestamp, db.Name, db.SizeMB, BackupPath, StripeCount,
+                Scenarios.Select(ToReportRow).ToList(),
+                RestoreTab.Scenarios.Select(ToReportRow).ToList());
+
+            var fileName = $"{db.Name}_FeedbackReport_{timestamp:yyyyMMdd_HHmmss}.txt";
+            var filePath = Path.Combine(BackupPath, fileName);
+            await File.WriteAllTextAsync(filePath, report);
+
+            StatusMessage = $"Feedback report saved: {fileName}";
+            return filePath;
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Feedback report failed: {ex.Message}";
+            return null;
+        }
+        finally
+        {
+            foreach (var (s, wasChecked) in backupChecked) s.IsChecked = wasChecked;
+            foreach (var (s, wasChecked) in restoreChecked) s.IsChecked = wasChecked;
+            RestoreTab.BackupPath = priorRestorePath;
+            RestoreTab.SelectedDatabaseFilter = priorRestoreFilter;
+            RestoreTab.RescanFiles();
+            IsFeedbackRunning = false;
+        }
+    }
+
+    private static ScenarioReportRow ToReportRow(BackupScenarioItemViewModel s) => new(
+        s.Scenario.Name, s.StatusText, s.DurationText, s.FileSizeMbText, s.MbPerSecText,
+        s.CompressionRatioText, s.LastSql, s.ErrorMessage);
+
+    private static ScenarioReportRow ToReportRow(RestoreScenarioItemViewModel s) => new(
+        s.Scenario.Name, s.StatusText, s.DurationText, s.FileSizeMbText, s.MbPerSecText,
+        s.FileSizeRatioText, s.LastSql, s.ErrorMessage);
 }

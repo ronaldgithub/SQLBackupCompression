@@ -31,8 +31,10 @@ Every backup statement also includes `WITH COPY_ONLY`, so benchmark runs never d
 
 ## Features
 
-- **Backup tab** — pick a database and backup folder, choose which scenarios to run, and run them in parallel or serially. Results (shown side by side with the scenario picker) include duration, file size, MB/sec, and two ratios: SIZE% (against the best result in the run) and RATIO (space saved vs. the original database size).
+- **Backup tab** — pick a database and backup folder, choose which scenarios to run, and run them in parallel or serially. Results (shown side by side with the scenario picker) include duration, file size, MB/sec, and two ratios: SIZE% (against the best result in the run) and RATIO (space saved vs. the original database size). A live TOTAL DURATION readout above the results shows the summed time for whichever scenarios you just ran.
+- **Striped backups** — an Off/2x/4x/8x switch next to the Serial/Parallel toggle splits each backup across N files (SQL Server's striped `BACKUP DATABASE ... TO DISK = 'f1', DISK = 'f2', ...`) for faster I/O. The Restore tab automatically groups a scenario's stripe files back into one restorable set.
 - **Restore tab** — benchmark restore speed for the `.bak` files produced by the Backup tab, one scenario at a time, into its own scratch database so runs don't interfere with each other.
+- **Ask for Feedback** — a header button that runs every backup and restore scenario back to back, saves a full text report (durations, sizes, throughput, ratios, SQL, errors), and opens an email draft reminding you to attach it.
 - **Analyse** — a button next to the database picker runs a table-level report (size, storage compression, and counts of LOB/GUID/Unicode/fixed-width/float columns per table) so you can see *why* a database will or won't compress well before running a single backup.
 - **Connection dialog** — point the app at any SQL Server instance (not just `localhost`), with Windows or SQL Login authentication, and a "Test Connection" check before applying.
 - **Info dialog** — a built-in reference explaining how MS_XPRESS, QAT_DEFLATE, and ZSTD actually work, and how column data types (Unicode text, GUIDs, floats, already-compressed blobs, etc.) and storage features (ROW/PAGE compression, columnstore, TDE) affect what backup compression can save.

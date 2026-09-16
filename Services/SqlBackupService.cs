@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
@@ -41,6 +42,7 @@ public class SqlBackupService(ConnectionSettings connectionSettings)
         string database,
         string backupPath,
         string timestamp,
+        int stripeCount = 1,
         IProgress<string>? progress = null,
         CancellationToken ct = default)
     {
@@ -48,10 +50,10 @@ public class SqlBackupService(ConnectionSettings connectionSettings)
         {
             Scenario = scenario,
             Status = BackupResultStatus.Running,
-            BackupFilePath = scenario.GetBackupFilePath(database, backupPath, timestamp)
+            BackupFilePaths = scenario.GetBackupFilePaths(database, backupPath, timestamp, stripeCount)
         };
 
-        var sql = scenario.GenerateSql(database, backupPath, timestamp);
+        var sql = scenario.GenerateSql(database, backupPath, timestamp, stripeCount);
         result.SqlStatement = sql;
 
         var sw = Stopwatch.StartNew();
@@ -68,9 +70,12 @@ public class SqlBackupService(ConnectionSettings connectionSettings)
             result.Duration = sw.Elapsed;
             result.Status = BackupResultStatus.Done;
 
-            if (File.Exists(result.BackupFilePath))
+            var totalBytes = result.BackupFilePaths
+                .Where(File.Exists)
+                .Sum(p => new FileInfo(p).Length);
+            if (totalBytes > 0)
             {
-                result.FileSizeMB = new FileInfo(result.BackupFilePath).Length / (1024.0 * 1024.0);
+                result.FileSizeMB = totalBytes / (1024.0 * 1024.0);
                 result.MbPerSec = result.FileSizeMB / result.Duration.TotalSeconds;
             }
         }

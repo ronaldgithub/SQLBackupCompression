@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace SqlBackupBenchmark.Models;
 
@@ -12,6 +13,6 @@ public class BackupResult
     public double FileSizeMB { get; set; }
     public double MbPerSec { get; set; }
     public string? ErrorMessage { get; set; }
-    public string BackupFilePath { get; set; } = "";
+    public IReadOnlyList<string> BackupFilePaths { get; set; } = [];
     public string SqlStatement { get; set; } = "";
 }

@@ -1,7 +1,5 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.IO;
-using System.Text.RegularExpressions;
 using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using SqlBackupBenchmark.Models;
@@ -14,8 +12,8 @@ public partial class RestoreScenarioItemViewModel : ViewModelBase
 
     [ObservableProperty] private bool _isChecked = true;
     [ObservableProperty] private bool _fileFound;
-    [ObservableProperty] private ObservableCollection<string> _availableFiles = [];
-    [ObservableProperty] private string? _selectedFile;
+    [ObservableProperty] private ObservableCollection<RestoreFileGroup> _availableFiles = [];
+    [ObservableProperty] private RestoreFileGroup? _selectedFile;
     [ObservableProperty] private string _derivedRestoreDb = "";
     [ObservableProperty] private BackupResultStatus _status = BackupResultStatus.Pending;
     [ObservableProperty] private string _durationText = "-";
@@ -34,21 +32,16 @@ public partial class RestoreScenarioItemViewModel : ViewModelBase
         Scenario = scenario;
     }
 
-    public void SetFiles(IEnumerable<string> fileNames)
+    public void SetFiles(IEnumerable<RestoreFileGroup> groups)
     {
-        var list = new List<string>(fileNames);
-        AvailableFiles = new ObservableCollection<string>(list);
+        var list = new List<RestoreFileGroup>(groups);
+        AvailableFiles = new ObservableCollection<RestoreFileGroup>(list);
         SelectedFile   = list.Count > 0 ? list[0] : null;
         FileFound      = SelectedFile is not null;
     }
 
-    partial void OnSelectedFileChanged(string? value)
-    {
-        if (value is null) { DerivedRestoreDb = ""; return; }
-        var nameNoExt = Path.GetFileNameWithoutExtension(value);
-        var match = Regex.Match(nameNoExt, @"^(.+)_\d{8}_\d{6}$");
-        DerivedRestoreDb = match.Success ? match.Groups[1].Value : nameNoExt;
-    }
+    partial void OnSelectedFileChanged(RestoreFileGroup? value)
+        => DerivedRestoreDb = value?.RestoreDbName ?? "";
 
     partial void OnFileFoundChanged(bool value)
         => OnPropertyChanged(nameof(RowForeground));

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 
 namespace SqlBackupBenchmark.Models;
 
@@ -11,16 +12,30 @@ public class BackupScenario
     public string? Algorithm { get; init; }   // null | MS_XPRESS | QAT_DEFLATE | ZSTD
     public string? Level { get; init; }       // null | LOW | MEDIUM | HIGH
 
-    public string GenerateSql(string database, string backupPath, string timestamp)
+    public string GenerateSql(string database, string backupPath, string timestamp, int stripeCount = 1)
     {
-        var fileName = $"{database}_{Name}_{timestamp}.bak";
-        var filePath = Path.Combine(backupPath, fileName);
+        var filePaths = GetBackupFilePaths(database, backupPath, timestamp, stripeCount);
+        var diskClause = string.Join(",\r\n     ",
+            filePaths.Select((p, i) => (i == 0 ? "TO DISK = N'" : "DISK = N'") + p + "'"));
         var withClause = BuildWithClause();
-        return $"BACKUP DATABASE [{database}]\r\nTO DISK = N'{filePath}'\r\nWITH COPY_ONLY, {withClause},\r\n     STATS = 10;\r\n";
+        return $"BACKUP DATABASE [{database}]\r\n{diskClause}\r\nWITH COPY_ONLY, {withClause},\r\n     STATS = 10;\r\n";
     }
 
-    public string GetBackupFilePath(string database, string backupPath, string timestamp)
-        => Path.Combine(backupPath, $"{database}_{Name}_{timestamp}.bak");
+    /// <summary>
+    /// Returns the backup file path(s) for this scenario/run. A single-element list when
+    /// stripeCount is 1 (using the original, unsuffixed filename), otherwise one path per
+    /// stripe file, named "..._stripe{i}of{N}.bak" so the restore tab can group them back
+    /// into one restorable set.
+    /// </summary>
+    public IReadOnlyList<string> GetBackupFilePaths(string database, string backupPath, string timestamp, int stripeCount = 1)
+    {
+        if (stripeCount <= 1)
+            return [Path.Combine(backupPath, $"{database}_{Name}_{timestamp}.bak")];
+
+        return Enumerable.Range(1, stripeCount)
+            .Select(i => Path.Combine(backupPath, $"{database}_{Name}_{timestamp}_stripe{i}of{stripeCount}.bak"))
+            .ToList();
+    }
 
     private string BuildWithClause()
     {

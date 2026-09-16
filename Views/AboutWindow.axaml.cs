@@ -2,13 +2,12 @@ using System;
 using System.Reflection;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using SqlBackupBenchmark.Services;
 
 namespace SqlBackupBenchmark.Views;
 
 public partial class AboutWindow : Window
 {
-    private const string ContactEmail = "ronald.de.groot@opendata.nl";
-
     public AboutWindow()
     {
         InitializeComponent();
@@ -44,7 +43,7 @@ public partial class AboutWindow : Window
             "----- version / environment (leave this in) -----\n" +
             Diagnostics + "\n";
 
-        var mailto = $"mailto:{ContactEmail}?subject={Uri.EscapeDataString(subject)}&body={Uri.EscapeDataString(body)}";
+        var mailto = $"mailto:{AppContact.Email}?subject={Uri.EscapeDataString(subject)}&body={Uri.EscapeDataString(body)}";
         try
         {
             await launcher.LaunchUriAsync(new Uri(mailto));

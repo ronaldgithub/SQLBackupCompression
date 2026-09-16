@@ -2,7 +2,6 @@ using System;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -22,6 +21,7 @@ public partial class RestoreTabViewModel : ViewModelBase
     [ObservableProperty] private bool _overwriteExisting = true;
     [ObservableProperty] private string _statusMessage = "Connecting...";
     [ObservableProperty] private bool _isRunning;
+    [ObservableProperty] private string _totalDurationText = "-";
 
     public ObservableCollection<RestoreScenarioItemViewModel> Scenarios { get; } = [];
 
@@ -90,10 +90,10 @@ public partial class RestoreTabViewModel : ViewModelBase
         foreach (var vm in Scenarios)
         {
             var marker = $"_{vm.Scenario.Name}_";
-            var files = allBakFiles
-                .Where(f => f.Contains(marker, StringComparison.OrdinalIgnoreCase))
-                .OrderByDescending(f => f);
-            vm.SetFiles(files);
+            var files = allBakFiles.Where(f => f.Contains(marker, StringComparison.OrdinalIgnoreCase));
+            var groups = RestoreFileGroup.GroupFrom(files)
+                .OrderByDescending(g => g.DisplayName, StringComparer.OrdinalIgnoreCase);
+            vm.SetFiles(groups);
             if (vm.FileFound) totalFound++;
         }
 
@@ -121,6 +121,7 @@ public partial class RestoreTabViewModel : ViewModelBase
 
         _cts = new CancellationTokenSource();
         IsRunning = true;
+        TotalDurationText = "-";
         StatusMessage = $"Restoring {selected.Count} scenario(s) serially...";
 
         try
@@ -132,13 +133,14 @@ public partial class RestoreTabViewModel : ViewModelBase
                 if (_cts.Token.IsCancellationRequested) break;
 
                 vm.SetRunning();
-                var targetDb = DeriveRestoreDb(vm.SelectedFile!);
+                var group = vm.SelectedFile!;
+                var targetDb = group.RestoreDbName;
                 StatusMessage = $"[{vm.Scenario.Name}] → {targetDb}...";
 
-                var filePath = Path.Combine(BackupPath, vm.SelectedFile!);
+                var filePaths = group.FileNames.Select(f => Path.Combine(BackupPath, f)).ToList();
 
                 var result = await _service.RunRestoreAsync(
-                    vm.Scenario, filePath, targetDb, dataPath, logPath,
+                    vm.Scenario, filePaths, targetDb, dataPath, logPath,
                     overwrite: OverwriteExisting,
                     ct: _cts.Token);
 
@@ -156,9 +158,15 @@ public partial class RestoreTabViewModel : ViewModelBase
 
         var done  = selected.Count(s => s.Status == BackupResultStatus.Done);
         var error = selected.Count(s => s.Status == BackupResultStatus.Error);
+        TotalDurationText = FormatDuration(TimeSpan.FromSeconds(selected.Sum(s => s.DurationSeconds)));
         StatusMessage = $"Completed: {done} succeeded, {error} failed.";
         IsRunning = false;
     }
+
+    private static string FormatDuration(TimeSpan ts) =>
+        ts.TotalSeconds > 0
+            ? $"{(int)ts.TotalMinutes:D2}:{ts.Seconds:D2}.{ts.Milliseconds / 100}"
+            : "-";
 
     private void ComputeRatios()
     {
@@ -172,14 +180,9 @@ public partial class RestoreTabViewModel : ViewModelBase
     private bool CanRun() =>
         !IsRunning && Scenarios.Any(s => s.IsChecked && s.FileFound);
 
-    private static string DeriveRestoreDb(string fileName)
-    {
-        var nameNoExt = Path.GetFileNameWithoutExtension(fileName);
-        var match = Regex.Match(nameNoExt, @"^(.+)_\d{8}_\d{6}$");
-        return match.Success ? match.Groups[1].Value : nameNoExt;
-    }
-
     public void SetBackupPathFromDialog(string path) => BackupPath = path;
+
+    public void RescanFiles() => ScanForFiles();
 
     public async Task RefreshConnectionAsync() => await LoadDatabasesAsync();
 }

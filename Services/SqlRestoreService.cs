@@ -42,14 +42,15 @@ public class SqlRestoreService(ConnectionSettings connectionSettings)
     }
 
     public async Task<List<(string LogicalName, string FileType)>> GetFileListAsync(
-        string backupFilePath,
+        IReadOnlyList<string> backupFilePaths,
         CancellationToken ct = default)
     {
         var files = new List<(string, string)>();
         await using var conn = new SqlConnection(ConnectionString);
         await conn.OpenAsync(ct);
+        var diskClause = string.Join(", ", backupFilePaths.Select(p => $"DISK = N'{p}'"));
         await using var cmd = new SqlCommand(
-            $"RESTORE FILELISTONLY FROM DISK = N'{backupFilePath}'",
+            $"RESTORE FILELISTONLY FROM {diskClause}",
             conn) { CommandTimeout = 60 };
         await using var reader = await cmd.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct))
@@ -60,7 +61,7 @@ public class SqlRestoreService(ConnectionSettings connectionSettings)
 
     public async Task<RestoreResult> RunRestoreAsync(
         BackupScenario scenario,
-        string backupFilePath,
+        IReadOnlyList<string> backupFilePaths,
         string targetDatabase,
         string dataPath,
         string logPath,
@@ -72,17 +73,16 @@ public class SqlRestoreService(ConnectionSettings connectionSettings)
         {
             Scenario = scenario,
             Status = BackupResultStatus.Running,
-            BackupFilePath = backupFilePath
+            BackupFilePaths = backupFilePaths
         };
 
-        if (File.Exists(backupFilePath))
-            result.FileSizeMB = new FileInfo(backupFilePath).Length / (1024.0 * 1024.0);
+        result.FileSizeMB = backupFilePaths.Where(File.Exists).Sum(p => new FileInfo(p).Length) / (1024.0 * 1024.0);
 
         var sw = Stopwatch.StartNew();
         try
         {
-            var fileList = await GetFileListAsync(backupFilePath, ct);
-            var sql = BuildRestoreSql(targetDatabase, backupFilePath, fileList, dataPath, logPath, overwrite);
+            var fileList = await GetFileListAsync(backupFilePaths, ct);
+            var sql = BuildRestoreSql(targetDatabase, backupFilePaths, fileList, dataPath, logPath, overwrite);
             result.SqlStatement = sql;
 
             await using var conn = new SqlConnection(ConnectionString);
@@ -112,7 +112,7 @@ public class SqlRestoreService(ConnectionSettings connectionSettings)
 
     private static string BuildRestoreSql(
         string targetDatabase,
-        string backupFilePath,
+        IReadOnlyList<string> backupFilePaths,
         List<(string LogicalName, string FileType)> fileList,
         string dataPath,
         string logPath,
@@ -120,7 +120,7 @@ public class SqlRestoreService(ConnectionSettings connectionSettings)
     {
         var sb = new StringBuilder();
         sb.AppendLine($"RESTORE DATABASE [{targetDatabase}]");
-        sb.AppendLine($"FROM DISK = N'{backupFilePath}'");
+        sb.AppendLine($"FROM {string.Join(", ", backupFilePaths.Select(p => $"DISK = N'{p}'"))}");
         sb.Append(overwrite ? "WITH REPLACE" : "WITH RECOVERY");
 
         var dataFiles  = fileList.Where(f => f.FileType == "D").ToList();

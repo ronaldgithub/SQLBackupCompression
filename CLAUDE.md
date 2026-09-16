@@ -65,11 +65,13 @@ Every generated backup statement also includes `COPY_ONLY`, so benchmark runs ne
    - *Parallel*: all checked scenarios launch at once via `Task.WhenAll`, each with its own `SqlConnection`.
    - *Serial*: scenarios run one at a time in list order; status bar shows which is active.
 4. Results post back to the UI thread via `Dispatcher.UIThread.Post(() => vm.ApplyResult(result, databaseSizeMb))`.
-5. After all tasks finish, `ComputeRatios()` calculates SIZE% and DUR% relative to the best (smallest = 100%).
+5. After all tasks finish, `ComputeRatios()` calculates SIZE% and DUR% relative to the best (smallest = 100%), and `TotalDurationText` is set to the summed duration of every scenario just run (shown top-right of the RESULTS header, reset to `-` when a new run starts).
+
+**Striped backups:** a second segmented control (`Off`/`2x`/`4x`/`8x` — "Off" binds to `IsStripe1`, i.e. `StripeCount == 1`; `MainWindowViewModel.StripeCount` with derived `IsStripe1/2/4/8` radio-bound bools) sits next to the Serial/Parallel toggle. It's a run-level setting, independent of scenario/compression choice: `BackupScenario.GenerateSql`/`GetBackupFilePaths` split one `BACKUP DATABASE` statement across N files (`TO DISK = N'f1', DISK = N'f2', ...`) when stripe count > 1, naming them `..._stripe{i}of{N}.bak`; at `Off` (`StripeCount == 1`) the filename is unchanged (`{database}_{ScenarioName}_{yyyyMMdd_HHmmss}.bak`) so existing backups keep working. `BackupResult.BackupFilePaths` holds all stripe paths; size/throughput are summed across them.
 
 **SQL generation** lives entirely in `BackupScenario.GenerateSql` / `BuildWithClause`. The exact SQL executed is stored in `BackupResult.SqlStatement` and displayed in the per-row SQL flyout button.
 
-**Backup file naming:** `{database}_{ScenarioName}_{yyyyMMdd_HHmmss}.bak` — used by both the backup tab (to write) and the restore tab (to discover files).
+**Backup file naming:** `{database}_{ScenarioName}_{yyyyMMdd_HHmmss}.bak` when striping is Off, or `{database}_{ScenarioName}_{yyyyMMdd_HHmmss}_stripe{i}of{N}.bak` per file when striped — used by both the backup tab (to write) and the restore tab (to discover and group files).
 
 **RATIO column:** `BackupScenarioItemViewModel.CompressionRatioText`, computed in `ApplyResult` as `100% × (1 − backup size ÷ database size)` — space saved versus the *source database's* size (from the selected `DatabaseInfo.SizeMB`), not versus the best result in the run (that's SIZE%).
 
@@ -84,11 +86,11 @@ Every generated backup statement also includes `COPY_ONLY`, so benchmark runs ne
 **Data flow:**
 
 1. `RestoreTabViewModel` is a property on `MainWindowViewModel` (`RestoreTab`). It owns its own `SqlRestoreService` and its own copy of the 11 scenarios as `RestoreScenarioItemViewModel`.
-2. On startup (and whenever `BackupPath` changes), `ScanForFiles()` enumerates all `.bak` files and distributes them to each scenario VM via `SetFiles()`. Matching uses in-memory `Contains($"_{ScenarioName}_")` — not Windows glob — to avoid multi-wildcard quirks.
-3. Each scenario row in the UI shows its own **file combobox** (populated from `AvailableFiles`) and a derived **restore target database** name (filename stripped of the `_yyyyMMdd_HHmmss` timestamp).
+2. On startup (and whenever `BackupPath` changes), `ScanForFiles()` enumerates all `.bak` files, filters by the `_{ScenarioName}_` marker, then groups them via `RestoreFileGroup.GroupFrom` — a striped backup's `_stripe{i}of{N}.bak` files collapse back into one group/one combobox entry (`RestoreScenarioItemViewModel.AvailableFiles` is `ObservableCollection<RestoreFileGroup>`), so restoring a striped backup still means picking one item and running one `RESTORE` statement with N `DISK =` clauses.
+3. Each scenario row in the UI shows its own **file combobox** (populated from `AvailableFiles`) and a derived **restore target database** name (`RestoreFileGroup.RestoreDbName`, the group's filename stripped of the `_yyyyMMdd_HHmmss` timestamp and any stripe suffix).
 4. Run is always **serial** — one restore at a time into the same target database.
 5. Before each restore, `SqlRestoreService.GetFileListAsync` runs `RESTORE FILELISTONLY` to get logical file names, then generates `RESTORE DATABASE ... WITH MOVE ..., STATS = 10`.
-6. `ComputeRatios()` calculates DUR% after all restores finish.
+6. `ComputeRatios()` calculates DUR% after all restores finish, and `TotalDurationText` is set to the summed duration of the scenarios just restored (same pattern as the Backup tab).
 
 **Config controls:**
 
@@ -107,7 +109,7 @@ WITH REPLACE,           -- omitted when Overwrite is unchecked
      STATS = 10;
 ```
 
-Multiple data/log files get indexed names (`_2.ndf`, `_log2.ldf`, etc.).
+Multiple data/log files get indexed names (`_2.ndf`, `_log2.ldf`, etc.). `FROM` becomes multiple comma-separated `DISK = N'...'` clauses when restoring a striped backup set (see `RestoreFileGroup` above).
 
 **Derived restore target:** `{filename without timestamp}` — e.g. `StackOverflow2010_NO_COMPRESSION`. Each scenario restores into its own database so runs don't interfere. The SQL flyout button per row shows the full statement actually executed.
 
@@ -134,6 +136,8 @@ Multiple data/log files get indexed names (`_2.ndf`, `_log2.ldf`, etc.).
 
 **Info dialog** (`Views/InfoWindow.axaml`, opened via the header "Info" button) is static reference content — no ViewModel, no live data — covering how MS_XPRESS/QAT_DEFLATE/ZSTD work and how column data types and storage features (ROW/PAGE compression, columnstore, TDE) affect backup compression. Purely documentation; update it by hand if the scenario table or algorithm behavior changes.
 
-**About dialog** (`Views/AboutWindow.axaml`) shows app name/version (from the `Version` MSBuild property in the `.csproj`, read via `AssemblyInformationalVersionAttribute`), a "Copy diagnostics" button, a "Help / contact" button (mailto with diagnostics pre-filled), and a CONTACT card with plain link buttons (`Classes="link"`, `Tag` holds the URI, all routed through one `OnLinkClick` handler) for mail/GitHub/Home/Posts.
+**About dialog** (`Views/AboutWindow.axaml`) shows app name/version (from the `Version` MSBuild property in the `.csproj`, read via `AssemblyInformationalVersionAttribute`), a "Copy diagnostics" button, a "Help / contact" button (mailto with diagnostics pre-filled), and a CONTACT card with plain link buttons (`Classes="link"`, `Tag` holds the URI, all routed through one `OnLinkClick` handler) for mail/GitHub/Home/Posts. The contact address itself lives in `Services/AppContact.cs` (`AppContact.Email`), shared with the "Ask for Feedback" button below.
+
+**Ask for Feedback button** (header, next to Info/About): `MainWindowViewModel.RunFeedbackReportAsync` force-checks and runs all backup scenarios (`SelectAllCommand` + `RunCommand.ExecuteAsync`, bypassing the command's `CanExecute` gate), rescans the restore tab against the same database/path, force-checks and runs all restore scenarios the same way, then restores every checkbox/filter/path the user had before it started (all in a `finally` block). `Services/FeedbackReportService.Build` turns both tabs' results (`ScenarioReportRow`, one per scenario: status/duration/size/MB-per-sec/ratio/SQL/error) plus environment info (`CpuInfo`, OS, runtime, app version) into a single plain-text report, saved as `{database}_FeedbackReport_{yyyyMMdd_HHmmss}.txt` in the backup folder — the app's only text-file output; everything else is `.bak` files written by SQL Server itself. `MainWindow.OnAskForFeedbackClick` then opens a mailto draft (via `AppContact.Email`, same pattern as `AboutWindow.OnContactClick`) telling the user to attach the file — mailto can't attach automatically — and opens the file's folder, both through Avalonia's `ILauncher`. Enabled via `CanAskForFeedback` (a database is selected and neither tab, nor the feedback run itself, is already running).
 
 **Adding a new scenario:** Add an entry in `BackupScenario.AllScenarios()`. Both the backup and restore tabs pick it up automatically — the checklist, runners, ratio calculators, and results grids require no other changes.

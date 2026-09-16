@@ -6,6 +6,7 @@ public static class CpuInfo
 {
     public static bool IsIntel { get; }
     public static string VendorName { get; }
+    public static int LogicalProcessorCount => Environment.ProcessorCount;
 
     static CpuInfo()
     {

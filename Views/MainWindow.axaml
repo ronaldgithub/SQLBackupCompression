@@ -79,6 +79,10 @@
                            VerticalAlignment="Center"/>
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                <Button Classes="sec" Content="Ask for Feedback" Padding="10,4" FontSize="12"
+                        Click="OnAskForFeedbackClick"
+                        IsEnabled="{Binding CanAskForFeedback}"
+                        ToolTip.Tip="Runs every backup and restore scenario, saves a full report, and opens an email draft to send it"/>
                 <Button Classes="sec" Content="Info" Padding="10,4" FontSize="12"
                         Click="OnInfoClick"
                         ToolTip.Tip="About the compression algorithms"/>
@@ -169,6 +173,34 @@
                             </StackPanel>
                         </Border>
 
+                        <Border DockPanel.Dock="Left"
+                                Background="#2D2D30" CornerRadius="4"
+                                Margin="8,0,0,0" Padding="2"
+                                ToolTip.Tip="Split each backup across N files (SQL Server striped backup) for faster I/O">
+                            <StackPanel Orientation="Horizontal" Spacing="2">
+                                <RadioButton GroupName="StripeCount"
+                                             IsChecked="{Binding IsStripe1}"
+                                             Content="Off"
+                                             Foreground="#CCCCCC" FontSize="12"
+                                             Padding="8,4"/>
+                                <RadioButton GroupName="StripeCount"
+                                             IsChecked="{Binding IsStripe2}"
+                                             Content="2x"
+                                             Foreground="#CCCCCC" FontSize="12"
+                                             Padding="8,4"/>
+                                <RadioButton GroupName="StripeCount"
+                                             IsChecked="{Binding IsStripe4}"
+                                             Content="4x"
+                                             Foreground="#CCCCCC" FontSize="12"
+                                             Padding="8,4"/>
+                                <RadioButton GroupName="StripeCount"
+                                             IsChecked="{Binding IsStripe8}"
+                                             Content="8x"
+                                             Foreground="#CCCCCC" FontSize="12"
+                                             Padding="8,4"/>
+                            </StackPanel>
+                        </Border>
+
                         <Button DockPanel.Dock="Left"
                                 Classes="sec" Content="↺  Reload"
                                 Command="{Binding ReloadCommand}"
@@ -219,7 +251,15 @@
                         <!-- Results -->
                         <Border Grid.Column="2" Classes="card">
                             <DockPanel>
-                                <TextBlock DockPanel.Dock="Top" Classes="lbl" Text="RESULTS" Margin="0,0,0,8"/>
+                                <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                                    <TextBlock Classes="lbl" Text="RESULTS" VerticalAlignment="Center"/>
+                                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                        <TextBlock Classes="lbl" Text="TOTAL DURATION" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding TotalDurationText}"
+                                                   FontSize="11" Foreground="#CCCCCC"
+                                                   VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </DockPanel>
 
                                 <!-- Column headers -->
                                 <Grid DockPanel.Dock="Top"
@@ -438,7 +478,15 @@
                     <!-- Results -->
                     <Border Classes="card">
                         <DockPanel>
-                            <TextBlock DockPanel.Dock="Top" Classes="lbl" Text="RESULTS" Margin="0,0,0,8"/>
+                            <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                                <TextBlock Classes="lbl" Text="RESULTS" VerticalAlignment="Center"/>
+                                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                    <TextBlock Classes="lbl" Text="TOTAL DURATION" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding RestoreTab.TotalDurationText}"
+                                               FontSize="11" Foreground="#CCCCCC"
+                                               VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </DockPanel>
 
                             <!-- Column headers -->
                             <Grid DockPanel.Dock="Top"
