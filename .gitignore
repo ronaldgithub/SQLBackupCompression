@@ -18,3 +18,7 @@ logs/
 # OS cruft
 .DS_Store
 Thumbs.db
+
+# Personal drafts (blog/social posts)
+post.md
+post_linkedin.txt
